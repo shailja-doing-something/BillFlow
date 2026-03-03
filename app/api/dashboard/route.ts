@@ -47,7 +47,7 @@ export async function GET() {
     // Last 12 months — for monthly trend
     supabase
       .from("financial_records")
-      .select("invoice_date, total_amount")
+      .select("invoice_date, total_amount, payment_status, due_date")
       .gte("invoice_date", twelveMonthsAgo)
       .not("vendor_name", "ilike", "%makemytrip%"),
 
@@ -84,18 +84,26 @@ export async function GET() {
     .slice(0, 10)
     .map(([vendor, total]) => ({ vendor, total }));
 
-  // Aggregate: monthly trend
-  const monthMap = new Map<string, number>();
+  // Aggregate: monthly trend with paid/unpaid split
+  type MonthBucket = { paid: number; unpaid: number; unpaidCount: number; overdueCount: number };
+  const monthMap = new Map<string, MonthBucket>();
   for (const r of trendRes.data ?? []) {
     if (!r.invoice_date) continue;
-    const d = new Date(r.invoice_date);
-    const key = d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    monthMap.set(key, (monthMap.get(key) ?? 0) + Number(r.total_amount ?? 0));
+    const key = new Date(r.invoice_date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const b = monthMap.get(key) ?? { paid: 0, unpaid: 0, unpaidCount: 0, overdueCount: 0 };
+    const amount = Number(r.total_amount ?? 0);
+    if (r.payment_status === "paid") {
+      b.paid += amount;
+    } else {
+      b.unpaid += amount;
+      b.unpaidCount += 1;
+      if (r.due_date && r.due_date < today) b.overdueCount += 1;
+    }
+    monthMap.set(key, b);
   }
-  // Sort by actual date
   const monthlyTrend = [...monthMap.entries()]
     .sort((a, b) => new Date("1 " + a[0]).getTime() - new Date("1 " + b[0]).getTime())
-    .map(([month, total]) => ({ month, total }));
+    .map(([month, b]) => ({ month, total: b.paid, ...b }));
 
   const metrics: DashboardMetrics = {
     totalMonthlySpend,

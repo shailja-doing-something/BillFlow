@@ -26,7 +26,7 @@ export interface DashboardMetrics {
   overdueCount: number;
   upcomingDue: FinancialRecord[];
   spendByVendor: { vendor: string; total: number }[];
-  monthlyTrend: { month: string; total: number }[];
+  monthlyTrend: { month: string; total: number; paid: number; unpaid: number; unpaidCount: number; overdueCount: number }[];
 }
 
 export interface Project {
