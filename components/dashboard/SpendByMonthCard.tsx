@@ -97,32 +97,32 @@ export function SpendRangeCard() {
 
         {/* Date picker popover */}
         {open && (
-          <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-4 space-y-3 w-64">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Select Date Range</p>
+          <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-slate-800 border-2 border-indigo-100 dark:border-slate-600 rounded-2xl shadow-2xl p-4 space-y-3.5 w-64">
+            <p className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Select Date Range</p>
             <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">From</label>
+                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wider">From</label>
                 <input
                   type="date"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
-                  className="mt-1 w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-400"
+                  className="mt-1.5 w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-500 rounded-lg px-2 py-1.5 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">To</label>
+                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wider">To</label>
                 <input
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                  className="mt-1 w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-400"
+                  className="mt-1.5 w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-500 rounded-lg px-2 py-1.5 text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
             <button
               onClick={apply}
               disabled={!from || !to || from > to}
-              className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors"
+              className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold tracking-wide transition-colors shadow-sm"
             >
               Apply
             </button>
