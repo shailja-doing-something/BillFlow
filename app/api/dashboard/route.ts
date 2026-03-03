@@ -12,8 +12,6 @@ export async function GET() {
     .toLocaleDateString("en-US", { month: "short", year: "numeric" });
   const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1)
     .toISOString().split("T")[0];
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-    .toISOString().split("T")[0];
   const today = now.toISOString().split("T")[0];
   const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
     .toISOString().split("T")[0];
@@ -36,11 +34,11 @@ export async function GET() {
       .neq("payment_status", "paid")
       .not("vendor_name", "ilike", "%makemytrip%"),
 
-    // This year — for vendor breakdown
+    // Last 12 months — for vendor breakdown
     supabase
       .from("financial_records")
       .select("vendor_name, total_amount")
-      .gte("invoice_date", startOfYear)
+      .gte("invoice_date", twelveMonthsAgo)
       .not("vendor_name", "is", null)
       .not("vendor_name", "ilike", "%makemytrip%"),
 
@@ -103,7 +101,7 @@ export async function GET() {
   }
   const monthlyTrend = [...monthMap.entries()]
     .sort((a, b) => new Date("1 " + a[0]).getTime() - new Date("1 " + b[0]).getTime())
-    .map(([month, b]) => ({ month, total: b.paid, ...b }));
+    .map(([month, b]) => ({ month, total: b.paid + b.unpaid, ...b }));
 
   const metrics: DashboardMetrics = {
     totalMonthlySpend,

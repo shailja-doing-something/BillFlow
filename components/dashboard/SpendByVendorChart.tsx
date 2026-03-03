@@ -28,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 export function SpendByVendorChart({ data }: Props) {
   return (
     <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm p-6">
-      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-5">Spend by Vendor</h3>
+      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-5">Spend by Vendor <span className="text-slate-400 dark:text-slate-500 font-normal">(last 12 months)</span></h3>
       <ResponsiveContainer width="100%" height={240}>
         <BarChart data={data} margin={{ top: 0, right: 8, left: 0, bottom: 48 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e2535" vertical={false} />
