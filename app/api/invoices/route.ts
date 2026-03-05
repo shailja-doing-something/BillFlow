@@ -19,7 +19,11 @@ export async function GET(req: NextRequest) {
     .order("invoice_date", { ascending: false, nullsFirst: false })
     .range(from, to);
 
-  if (vendor) q = q.ilike("vendor_name", `%${vendor}%`);
+  if (vendor) {
+    const names = vendor.split(",").map((v) => v.trim()).filter(Boolean);
+    if (names.length === 1) q = q.eq("vendor_name", names[0]);
+    else if (names.length > 1) q = q.in("vendor_name", names);
+  }
   if (status) q = q.eq("payment_status", status);
   if (dateFrom) q = q.gte("invoice_date", dateFrom);
   if (dateTo) q = q.lte("invoice_date", dateTo);
