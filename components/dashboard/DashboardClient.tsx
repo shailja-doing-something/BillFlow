@@ -34,65 +34,24 @@ export function DashboardClient({ initial }: Props) {
 
   return (
     <div className="p-7 space-y-6 max-w-7xl">
-      {/* Header with animated SVG background */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-950/30 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/40 px-6 py-5">
-        {/* Subtle SVG scroll-path animation */}
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          viewBox="0 0 800 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M0,50 C80,20 160,80 240,50 C320,20 400,80 480,50 C560,20 640,80 720,50 C760,35 780,42 800,50"
-            fill="none"
-            stroke="#6366f1"
-            strokeWidth="1.5"
-            strokeOpacity="0.15"
-            strokeDasharray="1200"
-            strokeDashoffset="1200"
-            style={{
-              animation: "dashDraw 3s ease-out forwards",
-            }}
-          />
-          <path
-            d="M0,65 C100,40 200,85 300,60 C400,35 500,75 600,55 C700,38 750,50 800,60"
-            fill="none"
-            stroke="#6366f1"
-            strokeWidth="1"
-            strokeOpacity="0.08"
-            strokeDasharray="1000"
-            strokeDashoffset="1000"
-            style={{
-              animation: "dashDraw 4s ease-out 0.5s forwards",
-            }}
-          />
-        </svg>
-
-        <style>{`
-          @keyframes dashDraw {
-            to { stroke-dashoffset: 0; }
-          }
-        `}</style>
-
-        <div className="relative flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">AI infrastructure spend overview</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
-              Updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </span>
-            <button
-              onClick={refresh}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-md bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 disabled:opacity-40 transition-colors"
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-              Refresh
-            </button>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">AI infrastructure spend overview</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
+            Updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -109,14 +68,14 @@ export function DashboardClient({ initial }: Props) {
         <KPICard
           title="Due This Week"
           value={metrics.upcomingDue.length}
-          sub="invoices due in 7 days"
+          sub="Due within 7 days"
           icon={Clock}
           accent="rose"
         />
         <KPICard
           title="Months Tracked"
           value={metrics.monthlyTrend.length}
-          sub="months of data"
+          sub="Months of spend data"
           icon={TrendingUp}
           accent="emerald"
         />

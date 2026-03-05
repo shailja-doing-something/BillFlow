@@ -41,7 +41,7 @@ export function KPICard({ title, value, sub, icon: Icon, isCurrency, accent }: K
       a.border
     )}>
       <div className="flex items-start justify-between mb-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{title}</p>
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{title}</p>
         <div className={cn("p-2 rounded-xl", a.icon)}>
           <Icon className="w-4 h-4" />
         </div>
