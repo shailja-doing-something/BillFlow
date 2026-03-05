@@ -12,20 +12,20 @@ interface KPICardProps {
 
 const ACCENT = {
   indigo: {
-    icon: "bg-indigo-50 dark:bg-indigo-950 text-indigo-500",
-    border: "border-t-indigo-500",
+    icon: "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-400",
+    border: "border-t-indigo-400",
   },
   amber: {
-    icon: "bg-amber-50 dark:bg-amber-950 text-amber-500",
-    border: "border-t-amber-500",
+    icon: "bg-violet-50 dark:bg-violet-950/60 text-violet-400",
+    border: "border-t-violet-400",
   },
   rose: {
-    icon: "bg-rose-50 dark:bg-rose-950 text-rose-500",
-    border: "border-t-rose-500",
+    icon: "bg-pink-50 dark:bg-pink-950/60 text-pink-400",
+    border: "border-t-pink-400",
   },
   emerald: {
-    icon: "bg-emerald-50 dark:bg-emerald-950 text-emerald-500",
-    border: "border-t-emerald-500",
+    icon: "bg-blue-50 dark:bg-blue-950/60 text-blue-400",
+    border: "border-t-blue-400",
   },
 };
 

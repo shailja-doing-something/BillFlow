@@ -6,18 +6,18 @@ interface Props {
   data: { vendor: string; total: number }[];
 }
 
-// Light harmonious palette — soft pastels in cool tones
+// Purple-blue-pink harmony — all muted, all in the same cool family
 const BAR_COLORS = [
-  "#a5b4fc", // indigo-300
-  "#c4b5fd", // violet-300
+  "#a78bfa", // violet-400
+  "#818cf8", // indigo-400
+  "#c084fc", // purple-400
   "#93c5fd", // blue-300
+  "#f0abfc", // fuchsia-300
+  "#c4b5fd", // violet-300
+  "#a5b4fc", // indigo-300
+  "#e879f9", // fuchsia-400 (muted)
   "#7dd3fc", // sky-300
-  "#6ee7b7", // emerald-300
-  "#86efac", // green-300
-  "#67e8f9", // cyan-300
-  "#fca5a5", // red-300
-  "#fcd34d", // amber-300
-  "#f9a8d4", // pink-300
+  "#d8b4fe", // purple-300
 ];
 
 export function SpendByVendorChart({ data }: Props) {
