@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { FinancialRecord, PaginatedResult } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { InvoiceDrawer } from "./InvoiceDrawer";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 interface Props {
   initial: PaginatedResult<FinancialRecord>;
@@ -24,6 +24,7 @@ export function RecordsTable({ initial, vendors }: Props) {
   });
   const [selected, setSelected] = useState<FinancialRecord | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const fetchData = useCallback(async (f: typeof filters) => {
     setLoading(true);
@@ -37,6 +38,7 @@ export function RecordsTable({ initial, vendors }: Props) {
     const res = await fetch(`/api/invoices?${params}`);
     const json = await res.json();
     setData(json);
+    setLastRefreshed(new Date());
     setLoading(false);
   }, []);
 
@@ -65,7 +67,7 @@ export function RecordsTable({ initial, vendors }: Props) {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <select
           value={filters.vendor}
           onChange={(e) => applyFilter("vendor", e.target.value)}
@@ -99,6 +101,20 @@ export function RecordsTable({ initial, vendors }: Props) {
           onChange={(e) => applyFilter("dateTo", e.target.value)}
           className="text-sm border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
+
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            Updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          <button
+            onClick={() => fetchData(filters)}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Table */}
