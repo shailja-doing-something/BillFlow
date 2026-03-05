@@ -8,15 +8,15 @@ interface Props {
 
 // Purple-blue-pink harmony — all muted, all in the same cool family
 const BAR_COLORS = [
-  "#a78bfa", // violet-400
   "#818cf8", // indigo-400
-  "#c084fc", // purple-400
+  "#a78bfa", // violet-400
   "#93c5fd", // blue-300
-  "#f0abfc", // fuchsia-300
-  "#c4b5fd", // violet-300
+  "#c084fc", // purple-400
   "#a5b4fc", // indigo-300
-  "#e879f9", // fuchsia-400 (muted)
   "#7dd3fc", // sky-300
+  "#c4b5fd", // violet-300
+  "#6366f1", // indigo-500
+  "#8b5cf6", // violet-500
   "#d8b4fe", // purple-300
 ];
 

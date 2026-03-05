@@ -20,8 +20,8 @@ const ACCENT = {
     border: "border-t-violet-400",
   },
   rose: {
-    icon: "bg-pink-50 dark:bg-pink-950/60 text-pink-400",
-    border: "border-t-pink-400",
+    icon: "bg-purple-50 dark:bg-purple-950/60 text-purple-400",
+    border: "border-t-purple-400",
   },
   emerald: {
     icon: "bg-blue-50 dark:bg-blue-950/60 text-blue-400",
