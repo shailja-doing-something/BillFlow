@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { DashboardMetrics, FinancialRecord } from "@/types";
+import { STATIC_PROJECTS } from "@/lib/sheets";
 
 export async function GET() {
   const now = new Date();
@@ -78,6 +79,22 @@ export async function GET() {
     if (!r.vendor_name) continue;
     vendorMap.set(r.vendor_name, (vendorMap.get(r.vendor_name) ?? 0) + Number(r.total_amount ?? 0));
   }
+  // Add all project LLMs + services that aren't already in the map (with $0)
+  for (const project of STATIC_PROJECTS) {
+    const vendors = [
+      ...project.llms.map((l) => l.provider),
+      ...project.services,
+    ];
+    for (const v of vendors) {
+      if (!v || v === "TBD") continue;
+      // Only add if not already present (case-insensitive match)
+      const existing = [...vendorMap.keys()].find(
+        (k) => k.toLowerCase() === v.toLowerCase()
+      );
+      if (!existing) vendorMap.set(v, 0);
+    }
+  }
+
   const spendByVendor = [...vendorMap.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([vendor, total]) => ({ vendor, total }));
