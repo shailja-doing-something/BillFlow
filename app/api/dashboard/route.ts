@@ -80,7 +80,6 @@ export async function GET() {
   }
   const spendByVendor = [...vendorMap.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
     .map(([vendor, total]) => ({ vendor, total }));
 
   // Aggregate: monthly trend with paid/unpaid split
