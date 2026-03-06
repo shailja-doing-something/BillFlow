@@ -109,7 +109,7 @@ export function DashboardChat({ metrics }: Props) {
       >
         <Sparkles className="w-4 h-4 shrink-0" />
         <span>Ask AI</span>
-        <span className="hidden sm:inline text-violet-200 font-normal">— spend insights</span>
+        <span className="hidden sm:inline text-violet-300/60 font-normal">— Spend Insights</span>
         {messages.length > 0 && (
           <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
         )}
