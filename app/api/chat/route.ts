@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: NextRequest) {
   const { messages, context } = await req.json();
@@ -18,23 +18,22 @@ Guidelines:
 - If asked something outside the dashboard data, politely say you only have visibility into the dashboard metrics
 - Tone: professional but conversational`;
 
-  const stream = await client.messages.stream({
-    model: "claude-haiku-4-5-20251001",
+  const stream = await client.chat.completions.create({
+    model: "gpt-4o-mini",
     max_tokens: 400,
-    system: systemPrompt,
-    messages,
+    stream: true,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...messages,
+    ],
   });
 
   const encoder = new TextEncoder();
   const readable = new ReadableStream({
     async start(controller) {
       for await (const chunk of stream) {
-        if (
-          chunk.type === "content_block_delta" &&
-          chunk.delta.type === "text_delta"
-        ) {
-          controller.enqueue(encoder.encode(chunk.delta.text));
-        }
+        const text = chunk.choices[0]?.delta?.content ?? "";
+        if (text) controller.enqueue(encoder.encode(text));
       }
       controller.close();
     },
