@@ -45,7 +45,8 @@ export function SpendByVendorChart({ data }: Props) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const sorted = [...data].sort((a, b) => b.total - a.total);
-  const max = sorted[0]?.total ?? 1;
+  // Use max of vendors that actually have spend, so $0 bars render as empty
+  const max = sorted.find((d) => d.total > 0)?.total ?? 1;
   const grandTotal = sorted.reduce((s, d) => s + d.total, 0);
 
   return (
@@ -88,12 +89,12 @@ export function SpendByVendorChart({ data }: Props) {
               </div>
 
               {/* Amount + % stacked */}
-              <div className="w-24 shrink-0 text-right">
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight">
-                  {formatCurrency(total)}
+              <div className="w-28 shrink-0 text-right">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight tabular-nums">
+                  {total > 0 ? formatCurrency(total) : "—"}
                 </p>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
-                  {pct}%
+                  {total > 0 ? `${pct}%` : "no spend"}
                 </p>
               </div>
 
