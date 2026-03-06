@@ -5,7 +5,7 @@ import { CheckCircle2, Users, TrendingUp, Plus, Search, X } from "lucide-react";
 import { TicketAccordion } from "@/components/hubspot/TicketAccordion";
 import { AddTicketModal } from "@/components/hubspot/AddTicketModal";
 import { HubspotTicket } from "@/types";
-import { cn } from "@/lib/utils";
+
 
 const HIT_RATE_FILTERS = [
   { label: "All", value: "all" },
@@ -161,35 +161,24 @@ export default function HubspotPage() {
           )}
         </div>
 
-        {/* Status pills */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+        {/* Status dropdown */}
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls}>
           {STATUS_FILTERS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatus(s)}
-              className={cn(
-                "text-xs font-medium px-2.5 py-1 rounded-md transition-colors",
-                status === s
-                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-              )}
-            >
-              {s}
-            </button>
+            <option key={s} value={s}>{s === "All" ? "All Statuses" : s}</option>
           ))}
-        </div>
+        </select>
 
         {/* Category dropdown */}
         <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls}>
           {categories.map((c) => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c} value={c}>{c === "All" ? "All Categories" : c}</option>
           ))}
         </select>
 
         {/* Hit rate dropdown */}
         <select value={hitRate} onChange={(e) => setHitRate(e.target.value)} className={selectCls}>
           {HIT_RATE_FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>{f.label}</option>
+            <option key={f.value} value={f.value}>{f.value === "all" ? "All Hit Rates" : f.label}</option>
           ))}
         </select>
 
