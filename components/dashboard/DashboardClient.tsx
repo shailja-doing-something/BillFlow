@@ -45,6 +45,7 @@ export function DashboardClient({ initial }: Props) {
           <span className="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
             {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
+          <DashboardChat metrics={metrics} />
           <button
             onClick={refresh}
             disabled={loading}
@@ -55,9 +56,6 @@ export function DashboardClient({ initial }: Props) {
           </button>
         </div>
       </div>
-
-      {/* AI Chat */}
-      <DashboardChat metrics={metrics} />
 
       {/* KPI Cards */}
       <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity", loading && "opacity-60")}>

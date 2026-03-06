@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, X, Minus, Loader2, MessageCircle } from "lucide-react";
+import { Sparkles, Send, X, Minus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DashboardMetrics } from "@/types";
 import { formatCurrency } from "@/lib/utils";
@@ -100,17 +100,17 @@ export function DashboardChat({ metrics }: Props) {
     }
   }
 
-  // Minimized pill — fixed bottom right
+  // Minimized = compact button in header
   if (mode === "minimized") {
     return (
       <button
         onClick={() => setMode("popup")}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl transition-all hover:scale-105 active:scale-95"
+        className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 transition-colors"
       >
-        <MessageCircle className="w-4 h-4" />
-        <span className="text-sm font-semibold">Ask AI</span>
+        <Sparkles className="w-3.5 h-3.5" />
+        Ask AI
         {messages.length > 0 && (
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
         )}
       </button>
     );
