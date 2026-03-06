@@ -56,7 +56,7 @@ export function SpendByVendorChart({ data }: Props) {
       </h3>
       <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{sorted.length} vendors · hover to see projects</p>
 
-      <div className="overflow-y-auto max-h-72 space-y-2.5 pr-1 scrollbar-thin">
+      <div className="overflow-y-auto max-h-72 space-y-2.5 pr-2" style={{ scrollbarWidth: "thin", scrollbarColor: "#c4b5fd #f1f5f9" }}>
         {sorted.map(({ vendor, total }, i) => {
           const pct = grandTotal > 0 ? Math.round((total / grandTotal) * 100) : 0;
           const projects = getProjects(vendor);
