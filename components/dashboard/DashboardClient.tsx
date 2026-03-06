@@ -8,6 +8,7 @@ import { SpendByVendorChart } from "@/components/dashboard/SpendByVendorChart";
 import { MonthlyTrendChart } from "@/components/dashboard/MonthlyTrendChart";
 import { DashboardMetrics, FinancialRecord } from "@/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { DashboardChat } from "@/components/dashboard/DashboardChat";
 
 interface Props {
   initial: DashboardMetrics;
@@ -54,6 +55,9 @@ export function DashboardClient({ initial }: Props) {
           </button>
         </div>
       </div>
+
+      {/* AI Chat */}
+      <DashboardChat metrics={metrics} />
 
       {/* KPI Cards */}
       <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity", loading && "opacity-60")}>

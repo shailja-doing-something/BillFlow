@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { STATIC_PROJECTS } from "@/lib/sheets";
 
@@ -41,34 +41,52 @@ function getProjects(vendor: string): string[] {
   return VENDOR_PROJECTS[vendor.toLowerCase()] ?? [];
 }
 
+interface TooltipState {
+  vendor: string;
+  projects: string[];
+  x: number;
+  y: number;
+}
+
 export function SpendByVendorChart({ data }: Props) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const sorted = [...data].sort((a, b) => b.total - a.total);
-  // Use max of vendors that actually have spend, so $0 bars render as empty
   const max = sorted.find((d) => d.total > 0)?.total ?? 1;
   const grandTotal = sorted.reduce((s, d) => s + d.total, 0);
 
+  function handleMouseEnter(e: React.MouseEvent, vendor: string) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setTooltip({
+      vendor,
+      projects: getProjects(vendor),
+      x: rect.right + 8,
+      y: rect.top,
+    });
+  }
+
   return (
-    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
+    <div ref={containerRef} className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
       <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
         Spend by Vendor{" "}
         <span className="text-slate-400 dark:text-slate-500 font-normal">(last 12 months)</span>
       </h3>
       <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{sorted.length} vendors · hover to see projects</p>
 
-      <div className="overflow-y-auto max-h-72 space-y-2.5 pr-2" style={{ scrollbarWidth: "thin", scrollbarColor: "#c4b5fd #f1f5f9" }}>
+      <div
+        className="overflow-y-auto max-h-72 space-y-2.5 pr-2"
+        style={{ scrollbarWidth: "thin", scrollbarColor: "#c4b5fd #f1f5f9" }}
+      >
         {sorted.map(({ vendor, total }, i) => {
           const pct = grandTotal > 0 ? Math.round((total / grandTotal) * 100) : 0;
-          const projects = getProjects(vendor);
-          const isHovered = hoveredIndex === i;
 
           return (
             <div
               key={vendor}
-              className="relative flex items-center gap-3 group"
-              onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => setHoveredIndex(null)}
+              className="flex items-center gap-3"
+              onMouseEnter={(e) => handleMouseEnter(e, vendor)}
+              onMouseLeave={() => setTooltip(null)}
             >
               {/* Vendor name */}
               <span className="w-28 shrink-0 text-xs text-slate-600 dark:text-slate-400 truncate text-right">
@@ -78,12 +96,11 @@ export function SpendByVendorChart({ data }: Props) {
               {/* Bar */}
               <div className="flex-1 h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
+                  className="h-full rounded-full"
                   style={{
                     width: `${(total / max) * 100}%`,
                     backgroundColor: BAR_COLORS[i % BAR_COLORS.length],
-                    opacity: hoveredIndex !== null && !isHovered ? 0.45 : 1,
-                    transition: "opacity 0.15s, width 0.5s",
+                    transition: "width 0.5s",
                   }}
                 />
               </div>
@@ -97,28 +114,6 @@ export function SpendByVendorChart({ data }: Props) {
                   {total > 0 ? `${pct}%` : "no spend"}
                 </p>
               </div>
-
-              {/* Hover tooltip */}
-              {isHovered && (
-                <div className="absolute right-0 top-full mt-1.5 z-20 bg-slate-900 dark:bg-slate-700 text-white rounded-xl shadow-xl px-3 py-2.5 min-w-44 pointer-events-none">
-                  <p className="text-xs font-bold mb-1.5">{vendor}</p>
-                  {projects.length > 0 ? (
-                    <>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Used in</p>
-                      <ul className="space-y-0.5">
-                        {projects.map((p) => (
-                          <li key={p} className="text-xs text-slate-200 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                            {p}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  ) : (
-                    <p className="text-[10px] text-slate-400">No project mapping found</p>
-                  )}
-                </div>
-              )}
             </div>
           );
         })}
@@ -127,6 +122,31 @@ export function SpendByVendorChart({ data }: Props) {
           <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No data</p>
         )}
       </div>
+
+      {/* Tooltip rendered outside scroll container, fixed to viewport */}
+      {tooltip && (
+        <div
+          className="fixed z-50 bg-slate-900 text-white rounded-xl shadow-xl px-3 py-2.5 min-w-44 pointer-events-none"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          <p className="text-xs font-bold mb-1.5">{tooltip.vendor}</p>
+          {tooltip.projects.length > 0 ? (
+            <>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Used in</p>
+              <ul className="space-y-0.5">
+                {tooltip.projects.map((p) => (
+                  <li key={p} className="text-xs text-slate-200 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-[10px] text-slate-400">No project mapping found</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
