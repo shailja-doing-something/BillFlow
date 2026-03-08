@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { Project } from "@/types";
 import { formatCurrency } from "@/lib/utils";
