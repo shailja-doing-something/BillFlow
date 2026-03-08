@@ -8,10 +8,13 @@ async function getProjectsFromDB(): Promise<Project[]> {
   const { data, error } = await supabase
     .from("agents_portfolio")
     .select("agents_projects, description, llms, llm_accounts, services_used, status")
-    .order("row_number", { ascending: true, nullsFirst: false })
     .limit(500);
 
-  if (error || !data) return STATIC_PROJECTS;
+  if (error) {
+    console.error("[agents_portfolio] fetch error:", error.message);
+    return STATIC_PROJECTS;
+  }
+  if (!data) return STATIC_PROJECTS;
 
   return data.map((row) => {
     // llms and services_used are comma-separated text fields
