@@ -11,7 +11,7 @@ async function getProjectsFromDB(): Promise<Project[]> {
     .order("row_number", { ascending: true, nullsFirst: false })
     .limit(500);
 
-  if (error || !data || data.length === 0) return STATIC_PROJECTS;
+  if (error || !data) return STATIC_PROJECTS;
 
   return data.map((row) => {
     // llms and services_used are comma-separated text fields

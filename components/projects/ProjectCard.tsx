@@ -140,9 +140,6 @@ export function ProjectCard({ project, index, maxSpend }: Props) {
           </div>
         )}
 
-        {allVendors.length === 0 && (
-          <p className="text-xs text-slate-400 italic">Tools not yet assigned</p>
-        )}
       </div>
 
       {/* Spend bar */}
