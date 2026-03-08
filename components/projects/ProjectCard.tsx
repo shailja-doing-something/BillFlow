@@ -80,7 +80,10 @@ export function ProjectCard({ project, index, maxSpend }: Props) {
               {project.status && <StatusBadge status={project.status} />}
             </div>
             {project.description && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
+              <p
+                title={project.description}
+                className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed line-clamp-2 cursor-default"
+              >
                 {project.description}
               </p>
             )}
