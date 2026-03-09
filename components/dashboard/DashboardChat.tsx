@@ -43,9 +43,18 @@ function buildContext(metrics: DashboardMetrics): string {
   ].join("\n");
 }
 
+const SEEN_KEY = "spendsync_chat_seen";
+
 export function DashboardChat({ metrics }: Props) {
-  // popup = full modal on load, minimized = small pill in corner
-  const [mode, setMode] = useState<"popup" | "minimized">("popup");
+  const [mode, setMode] = useState<"popup" | "minimized">(() => {
+    if (typeof window === "undefined") return "minimized";
+    const seen = localStorage.getItem(SEEN_KEY);
+    if (!seen) {
+      localStorage.setItem(SEEN_KEY, "1");
+      return "popup";
+    }
+    return "minimized";
+  });
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -100,18 +109,18 @@ export function DashboardChat({ metrics }: Props) {
     }
   }
 
-  // Minimized = compact button in header
+  // Minimized = prominent gradient button in header
   if (mode === "minimized") {
     return (
       <button
         onClick={() => setMode("popup")}
-        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors shadow-sm"
+        className="relative flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white shadow-md shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all duration-200 hover:scale-[1.03]"
       >
-        <Sparkles className="w-4 h-4 shrink-0 text-violet-400" />
+        <Sparkles className="w-4 h-4 shrink-0" />
         <span>Ask AI</span>
-        <span className="hidden sm:inline text-slate-400 dark:text-slate-500 font-normal">— Spend Insights</span>
+        <span className="hidden sm:inline opacity-80 font-normal">— Spend Insights</span>
         {messages.length > 0 && (
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-emerald-300 shrink-0" />
         )}
       </button>
     );

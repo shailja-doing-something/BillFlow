@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AlertCircle, TrendingUp, CalendarClock, RefreshCw, OctagonAlert } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { SpendRangeCard } from "@/components/dashboard/SpendByMonthCard";
@@ -18,6 +18,29 @@ export function DashboardClient({ initial }: Props) {
   const [metrics, setMetrics] = useState<DashboardMetrics>(initial);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [vendorProjects, setVendorProjects] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    fetch("/api/sheets")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (!json?.projects) return;
+        const map: Record<string, string[]> = {};
+        for (const project of json.projects) {
+          const vendors = [
+            ...(project.llms ?? []).map((l: { provider: string }) => l.provider),
+            ...(project.services ?? []),
+          ];
+          for (const v of vendors) {
+            const key = v.toLowerCase();
+            if (!map[key]) map[key] = [];
+            if (!map[key].includes(project.name)) map[key].push(project.name);
+          }
+        }
+        setVendorProjects(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -89,7 +112,7 @@ export function DashboardClient({ initial }: Props) {
 
       {/* Charts */}
       <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-5 transition-opacity", loading && "opacity-60")}>
-        <SpendByVendorChart data={metrics.spendByVendor} />
+        <SpendByVendorChart data={metrics.spendByVendor} vendorProjects={vendorProjects} />
         <MonthlyTrendChart data={metrics.monthlyTrend} />
       </div>
 

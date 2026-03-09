@@ -2,10 +2,10 @@
 
 import { useState, useRef } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { STATIC_PROJECTS } from "@/lib/sheets";
 
 interface Props {
   data: { vendor: string; total: number }[];
+  vendorProjects: Record<string, string[]>;
 }
 
 const BAR_COLORS = [
@@ -21,26 +21,6 @@ const BAR_COLORS = [
   "#d8b4fe", // purple-300
 ];
 
-// Build a map: vendor name (lowercase) → project names
-const VENDOR_PROJECTS: Record<string, string[]> = {};
-for (const project of STATIC_PROJECTS) {
-  const vendors = [
-    ...project.llms.map((l) => l.provider),
-    ...project.services,
-  ];
-  for (const v of vendors) {
-    const key = v.toLowerCase();
-    if (!VENDOR_PROJECTS[key]) VENDOR_PROJECTS[key] = [];
-    if (!VENDOR_PROJECTS[key].includes(project.name)) {
-      VENDOR_PROJECTS[key].push(project.name);
-    }
-  }
-}
-
-function getProjects(vendor: string): string[] {
-  return VENDOR_PROJECTS[vendor.toLowerCase()] ?? [];
-}
-
 interface TooltipState {
   vendor: string;
   projects: string[];
@@ -48,7 +28,7 @@ interface TooltipState {
   y: number;
 }
 
-export function SpendByVendorChart({ data }: Props) {
+export function SpendByVendorChart({ data, vendorProjects }: Props) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +40,7 @@ export function SpendByVendorChart({ data }: Props) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setTooltip({
       vendor,
-      projects: getProjects(vendor),
+      projects: vendorProjects[vendor.toLowerCase()] ?? [],
       x: rect.right + 8,
       y: rect.top,
     });
