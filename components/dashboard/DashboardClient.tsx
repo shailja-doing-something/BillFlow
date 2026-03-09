@@ -60,14 +60,9 @@ export function DashboardClient({ initial }: Props) {
     <div className="p-7 space-y-6 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">AI infrastructure spend overview</p>
-          </div>
-          <div className="self-center">
-            <DashboardChat metrics={metrics} />
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">AI infrastructure spend overview</p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
@@ -82,6 +77,11 @@ export function DashboardClient({ initial }: Props) {
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* Orion AI — inline search bar */}
+      <div className="max-w-2xl mx-auto">
+        <DashboardChat metrics={metrics} />
       </div>
 
       {/* KPI Cards */}
