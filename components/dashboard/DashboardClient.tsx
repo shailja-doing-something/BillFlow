@@ -7,7 +7,7 @@ import { SpendRangeCard } from "@/components/dashboard/SpendByMonthCard";
 import { SpendByVendorChart } from "@/components/dashboard/SpendByVendorChart";
 import { MonthlyTrendChart } from "@/components/dashboard/MonthlyTrendChart";
 import { DashboardMetrics, FinancialRecord } from "@/types";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, canonicalVendor } from "@/lib/utils";
 import { DashboardChat } from "@/components/dashboard/DashboardChat";
 
 interface Props {
@@ -32,7 +32,7 @@ export function DashboardClient({ initial }: Props) {
             ...(project.services ?? []),
           ];
           for (const v of vendors) {
-            const key = v.toLowerCase();
+            const key = canonicalVendor(v).toLowerCase();
             if (!map[key]) map[key] = [];
             if (!map[key].includes(project.name)) map[key].push(project.name);
           }
