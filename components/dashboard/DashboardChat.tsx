@@ -51,9 +51,11 @@ export function DashboardChat({ metrics }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Scroll only when a new message is added (not on every streaming chunk)
+  const messageCount = messages.length;
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messageCount]);
 
   async function send(text: string) {
     if (!text.trim() || streaming) return;

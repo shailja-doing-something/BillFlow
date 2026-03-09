@@ -57,7 +57,7 @@ export function DashboardClient({ initial }: Props) {
   }, []);
 
   return (
-    <div className="p-7 space-y-6 max-w-7xl">
+    <div className="pt-10 px-7 pb-7 space-y-6 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
