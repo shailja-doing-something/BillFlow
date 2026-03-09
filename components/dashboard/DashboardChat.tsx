@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Sparkles, Send, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DashboardMetrics } from "@/types";
@@ -51,12 +51,6 @@ export function DashboardChat({ metrics }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll only when a new message is added (not on every streaming chunk)
-  const messageCount = messages.length;
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messageCount]);
-
   async function send(text: string) {
     if (!text.trim() || streaming) return;
     const userMsg: Message = { role: "user", content: text.trim() };
@@ -65,6 +59,8 @@ export function DashboardChat({ metrics }: Props) {
     setInput("");
     setStreaming(true);
     setMessages([...next, { role: "assistant", content: "" }]);
+    // Scroll to bottom only once when user sends — not during streaming
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
     try {
       const res = await fetch("/api/chat", {
@@ -99,18 +95,25 @@ export function DashboardChat({ metrics }: Props) {
 
   return (
     <div className="w-full">
-      {/* Prompt heading — only when no conversation yet */}
-      {!hasMessages && (
-        <div className="mb-5 text-center">
-          <p className="text-2xl font-semibold text-slate-700 dark:text-slate-200 tracking-tight">
-            What's on your mind today?
-          </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 flex items-center justify-center gap-1">
+      {/* Persistent header — always visible */}
+      <div className="mb-4 text-center">
+        {!hasMessages ? (
+          <>
+            <p className="text-2xl font-semibold text-slate-700 dark:text-slate-200 tracking-tight">
+              What's on your mind today?
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 flex items-center justify-center gap-1">
+              <Sparkles className="w-3 h-3 text-indigo-400" />
+              Orion · Spend Intelligence
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
             <Sparkles className="w-3 h-3 text-indigo-400" />
             Orion · Spend Intelligence
           </p>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Message thread */}
       {hasMessages && (
