@@ -16,10 +16,18 @@ async function getProjectsFromDB(): Promise<Project[]> {
   }
   if (!data) return STATIC_PROJECTS;
 
-  return data.map((row) => {
-    // llms and services_used are comma-separated text fields
+  // Deduplicate by project name (DB has duplicate rows)
+  const seen = new Set<string>();
+  const unique = data.filter((row) => {
+    const key = (row.agents_projects ?? "").trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return unique.map((row) => {
     const llmNames = row.llms
-      ? row.llms.split(",").map((s: string) => s.trim()).filter(Boolean)
+      ? row.llms.split(",").map((s: string) => s.trim()).filter((s: string) => s && s.toLowerCase() !== "na")
       : [];
     const services = row.services_used
       ? row.services_used.split(",").map((s: string) => s.trim()).filter(Boolean)
@@ -29,7 +37,10 @@ async function getProjectsFromDB(): Promise<Project[]> {
       name: row.agents_projects ?? "",
       description: row.description ?? "",
       timeline: null,
-      llms: llmNames.map((model: string) => ({ provider: model, model: "", owner: row.llm_accounts ?? "" })),
+      llms: llmNames.map((entry: string) => {
+        const parts = entry.split(" ");
+        return { provider: parts[0], model: parts.slice(1).join(" "), owner: row.llm_accounts ?? "" };
+      }),
       services,
       status: row.status ?? null,
       totalSpend: null,

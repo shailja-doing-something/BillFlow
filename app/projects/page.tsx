@@ -34,13 +34,22 @@ async function getProjects(): Promise<{ projects: Project[]; maxSpend: number }>
     .not("vendor_name", "is", null)
     .not("vendor_name", "ilike", "%makemytrip%");
 
-  const rawProjects: Project[] = (portfolioRows ?? []).map((row) => ({
+  // Deduplicate by project name (DB has duplicate rows)
+  const seenNames = new Set<string>();
+  const uniqueRows = (portfolioRows ?? []).filter((row) => {
+    const key = (row.agents_projects ?? "").trim().toLowerCase();
+    if (seenNames.has(key)) return false;
+    seenNames.add(key);
+    return true;
+  });
+
+  const rawProjects: Project[] = uniqueRows.map((row) => ({
     name: row.agents_projects ?? "Untitled",
     description: row.description ?? "",
     timeline: null,
     status: withStatus ? (row.status || null) : null,
     llms: row.llms
-      ? row.llms.split(",").map((s: string) => s.trim()).filter(Boolean)
+      ? row.llms.split(",").map((s: string) => s.trim()).filter((s: string) => s && s.toLowerCase() !== "na")
           .map((entry: string) => {
             const parts = entry.trim().split(" ");
             const provider = parts[0] ?? entry;
