@@ -48,7 +48,7 @@ export function DashboardChat({ metrics }: Props) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [focused, setFocused] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function send(text: string) {
@@ -59,8 +59,11 @@ export function DashboardChat({ metrics }: Props) {
     setInput("");
     setStreaming(true);
     setMessages([...next, { role: "assistant", content: "" }]);
-    // Scroll to bottom only once when user sends — not during streaming
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    // Scroll the chat container to bottom once — never again during streaming
+    setTimeout(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 50);
 
     try {
       const res = await fetch("/api/chat", {
@@ -118,6 +121,7 @@ export function DashboardChat({ metrics }: Props) {
       {/* Message thread */}
       {hasMessages && (
         <div
+          ref={scrollRef}
           className="mb-4 space-y-3 max-h-72 overflow-y-auto px-1"
           style={{ scrollbarWidth: "thin", scrollbarColor: "#c4b5fd transparent" }}
         >
@@ -140,7 +144,6 @@ export function DashboardChat({ metrics }: Props) {
               </div>
             </div>
           ))}
-          <div ref={bottomRef} />
         </div>
       )}
 

@@ -56,7 +56,7 @@ export function Sidebar() {
             <BarChart3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <span className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">SpendAnalyzer</span>
+            <span className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">Billflow</span>
             <p className="text-slate-400 dark:text-slate-600 text-[10px] font-medium tracking-widest uppercase">AI Cost Tracker</p>
           </div>
         </div>

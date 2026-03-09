@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const { messages, context } = await req.json();
 
-  const systemPrompt = `You are a concise AI assistant embedded in SpendSync — an internal dashboard that tracks AI infrastructure spend across projects and vendors at Fello Innovations.
+  const systemPrompt = `You are a concise AI assistant embedded in Billflow — an internal dashboard that tracks AI infrastructure spend across projects and vendors at Fello Innovations.
 
 Current dashboard snapshot:
 ${context}

@@ -4,7 +4,7 @@
 Internal web app for Fello Innovations to track AI agent costs across projects and vendors.
 No authentication required. Deployed on Railway.
 
-> Note: The sidebar branding renders "SpendAnalyzer" — "SpendSync" is the repo/project name.
+> Note: The UI branding is "Billflow" — the repo/GitHub name remains "SpendSync".
 
 ## Tech Stack
 - **Framework**: Next.js (App Router), TypeScript
