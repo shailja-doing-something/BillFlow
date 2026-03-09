@@ -58,25 +58,29 @@ export function DashboardClient({ initial }: Props) {
 
   return (
     <div className="pt-10 px-7 pb-7 space-y-6 max-w-7xl">
-      {/* Header + Orion — unified section */}
-      <div className="max-w-2xl mx-auto text-center space-y-1 mb-2">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-            <span className="text-slate-300 dark:text-slate-600">·</span>
-            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
-              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </span>
-          </div>
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">AI infrastructure spend overview</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
+            {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · Updated {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
           <button
             onClick={refresh}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm"
           >
-            <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* Orion AI */}
+      <div className="max-w-2xl mx-auto">
         <DashboardChat metrics={metrics} />
       </div>
 
