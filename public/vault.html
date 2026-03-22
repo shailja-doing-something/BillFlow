@@ -548,6 +548,44 @@
     </div>
     <button class="btn-primary" id="a-btn" onclick="handleAuth()">Sign In</button>
     <div id="a-err" class="form-error"></div>
+    <button class="form-link" onclick="showResetForm()">Forgot password / First time setup</button>
+    <div id="reset-wrap" style="display:none;margin-top:12px;">
+      <div class="form-group">
+        <label class="form-label">Your Email</label>
+        <input type="email" id="reset-email" class="form-input" placeholder="you@company.com">
+      </div>
+      <button class="btn-primary" id="reset-btn" onclick="sendReset()">Send Reset Link</button>
+      <div id="reset-msg" class="form-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Set Password Screen (after clicking invite / reset email link) -->
+<div id="setpw-screen" class="screen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🔑</div>
+      <div>
+        <div class="auth-logo-name">BillFlow Vault</div>
+        <div class="auth-logo-sub" id="setpw-sub">Set your account password</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">New Password</label>
+      <div class="input-wrap">
+        <input type="password" id="sp-pw" class="form-input" placeholder="••••••••" autocomplete="new-password">
+        <button class="eye-btn" onclick="toggleVis('sp-pw',this)">👁</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Confirm Password</label>
+      <div class="input-wrap">
+        <input type="password" id="sp-confirm" class="form-input" placeholder="••••••••" autocomplete="new-password">
+        <button class="eye-btn" onclick="toggleVis('sp-confirm',this)">👁</button>
+      </div>
+    </div>
+    <button class="btn-primary" id="sp-btn" onclick="handleSetPassword()">Set Password & Continue</button>
+    <div id="sp-err" class="form-error"></div>
   </div>
 </div>
 
@@ -557,9 +595,6 @@
     <div class="master-icon">🔐</div>
     <div class="master-title" id="m-title">Enter Master Password</div>
     <div class="master-sub" id="m-sub">Decrypt your vault. This password never leaves your browser.</div>
-    <div id="m-warn" class="warning-box" style="display:none">
-      ⚠️ If you forget your master password, your vault cannot be recovered. There is no reset option.
-    </div>
     <div class="form-group">
       <label class="form-label">Master Password</label>
       <div class="input-wrap">
@@ -567,14 +602,7 @@
         <button class="eye-btn" onclick="toggleVis('m-pw',this)">👁</button>
       </div>
     </div>
-    <div id="m-confirm-wrap" class="form-group" style="display:none">
-      <label class="form-label">Confirm Master Password</label>
-      <div class="input-wrap">
-        <input type="password" id="m-confirm" class="form-input" placeholder="••••••••" autocomplete="off">
-        <button class="eye-btn" onclick="toggleVis('m-confirm',this)">👁</button>
-      </div>
-    </div>
-    <button class="btn-primary" id="m-btn" onclick="handleMaster()">Unlock Vault</button>
+<button class="btn-primary" id="m-btn" onclick="handleMaster()">Unlock Vault</button>
     <div id="m-err" class="form-error"></div>
     <button class="form-link" onclick="signOut()">Sign out</button>
   </div>
@@ -741,7 +769,6 @@ let entryMap    = new Map(); // id → entry (for O(1) lookup in event handlers)
 let currentCat  = 'all';
 let searchQ     = '';
 let editingId   = null;
-let isNewUser   = false;
 
 // ── Crypto ─────────────────────────────────────────────────────────
 async function deriveKey(masterPassword, salt) {
@@ -819,9 +846,18 @@ async function handleAuth() {
     if (authMode === 'up') {
       const confirm = document.getElementById('a-confirm').value;
       if (pw !== confirm) { err.textContent = 'Passwords do not match.'; return; }
-      const { error } = await sb.auth.signUp({ email, password: pw });
-      if (error) throw error;
-      isNewUser = true;
+      if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
+      // Create account via server-side API (uses service role — no email confirmation needed)
+      const res = await fetch('/api/vault/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Registration failed.');
+      // Sign in immediately after account creation
+      const { error: signInErr } = await sb.auth.signInWithPassword({ email, password: pw });
+      if (signInErr) throw signInErr;
     } else {
       const { error } = await sb.auth.signInWithPassword({ email, password: pw });
       if (error) throw error;
@@ -840,6 +876,46 @@ async function signOut() {
   showScreen('auth-screen');
 }
 
+// ── Password reset / first-time setup ──────────────────────────────
+function showResetForm() {
+  const wrap = document.getElementById('reset-wrap');
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+}
+
+async function sendReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  const btn   = document.getElementById('reset-btn');
+  const msg   = document.getElementById('reset-msg');
+  msg.textContent = '';
+  if (!email) { msg.textContent = 'Enter your email.'; return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href,
+  });
+  btn.disabled = false; btn.textContent = 'Send Reset Link';
+  msg.style.color = error ? 'var(--red)' : 'var(--green)';
+  msg.textContent = error ? (error.message || 'Failed to send.') : 'Check your email for the reset link.';
+}
+
+async function handleSetPassword() {
+  const pw      = document.getElementById('sp-pw').value;
+  const confirm = document.getElementById('sp-confirm').value;
+  const btn     = document.getElementById('sp-btn');
+  const err     = document.getElementById('sp-err');
+  err.textContent = '';
+  if (!pw) { err.textContent = 'Enter a password.'; return; }
+  if (pw !== confirm) { err.textContent = 'Passwords do not match.'; return; }
+  if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
+  btn.disabled = true; btn.textContent = 'Setting…';
+  const { error } = await sb.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = 'Set Password & Continue';
+  if (error) { err.textContent = error.message || 'Failed to set password.'; return; }
+  // Clear hash from URL then go to master password screen
+  history.replaceState(null, '', window.location.pathname);
+  await setupMasterScreen();
+  showScreen('master-screen');
+}
+
 // ── Master password ────────────────────────────────────────────────
 async function handleMaster() {
   const pw  = document.getElementById('m-pw').value;
@@ -849,38 +925,17 @@ async function handleMaster() {
   if (!pw) { err.textContent = 'Enter your master password.'; return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
-    if (isNewUser) {
-      const confirm = document.getElementById('m-confirm').value;
-      if (pw !== confirm) { err.textContent = 'Passwords do not match.'; return; }
-      const salt    = crypto.getRandomValues(new Uint8Array(16));
-      const saltB64 = btoa(String.fromCharCode(...salt));
-      const key     = await deriveKey(pw, salt);
-      const verify  = await encryptField(key, 'billflow-vault-verified');
-      const { error } = await sb.from('user_settings').insert({
-        user_id: currentUser.id,
-        pbkdf2_salt: saltB64,
-        verification_blob: verify.ct,
-        verification_iv: verify.iv,
-      });
-      if (error) throw error;
-      vaultKey = key;
-      await loadVault();
-      await seedVault();
-      showScreen('vault-screen');
-      toast('Vault created!', 's');
-    } else {
-      const { data: cfg, error } = await sb
-        .from('user_settings').select('pbkdf2_salt,verification_blob,verification_iv')
-        .eq('user_id', currentUser.id).single();
-      if (error || !cfg) throw new Error('Could not load vault settings.');
-      const salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
-      const key  = await deriveKey(pw, salt);
-      const chk  = await decryptField(key, cfg.verification_iv, cfg.verification_blob);
-      if (chk !== 'billflow-vault-verified') { err.textContent = 'Incorrect master password.'; return; }
-      vaultKey = key;
-      await loadVault();
-      showScreen('vault-screen');
-    }
+    const { data: cfg, error } = await sb
+      .from('user_settings').select('pbkdf2_salt,verification_blob,verification_iv')
+      .limit(1).single();
+    if (error || !cfg) throw new Error('Vault not configured. Contact your administrator.');
+    const salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
+    const key  = await deriveKey(pw, salt);
+    const chk  = await decryptField(key, cfg.verification_iv, cfg.verification_blob);
+    if (chk !== 'billflow-vault-verified') { err.textContent = 'Incorrect master password.'; return; }
+    vaultKey = key;
+    await loadVault();
+    showScreen('vault-screen');
   } catch(e) {
     if (!err.textContent) err.textContent = e.message || 'Failed to unlock vault.';
   } finally {
@@ -898,7 +953,7 @@ function lockVault() {
 // ── Vault data ─────────────────────────────────────────────────────
 async function loadVault() {
   const { data: rows, error } = await sb.from('vault_entries')
-    .select('*').eq('user_id', currentUser.id).order('created_at');
+    .select('*').order('created_at');
   if (error) { toast('Failed to load vault.', 'e'); return; }
   allEntries = await Promise.all((rows || []).map(async r => ({
     id:           r.id,
@@ -1202,30 +1257,40 @@ function toast(msg, type) {
 }
 
 // ── App init ───────────────────────────────────────────────────────
-async function setupMasterScreen(newUser) {
-  isNewUser = newUser;
-  const warn = document.getElementById('m-warn');
-  const conf = document.getElementById('m-confirm-wrap');
-  const btn  = document.getElementById('m-btn');
-  const sub  = document.getElementById('m-sub');
-  if (newUser) {
-    warn.style.display = 'block'; conf.style.display = 'block';
-    btn.textContent = 'Create Vault';
-    sub.textContent = 'Set a master password to encrypt your vault. This never leaves your browser.';
-  } else {
-    warn.style.display = 'none'; conf.style.display = 'none';
-    btn.textContent = 'Unlock Vault';
-    sub.textContent = 'Decrypt your vault. This password never leaves your browser.';
-  }
+async function setupMasterScreen() {
+  document.getElementById('m-btn').textContent = 'Unlock Vault';
+  document.getElementById('m-sub').textContent = 'Decrypt your vault. This password never leaves your browser.';
 }
 
 async function init() {
-  const { data: { session } } = await sb.auth.getSession();
   const loading = document.getElementById('loading-screen');
+
+  // Detect invite or password-reset token in URL hash
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const tokenType = hash.get('type');
+  if (tokenType === 'invite' || tokenType === 'recovery') {
+    const sub = document.getElementById('setpw-sub');
+    sub.textContent = tokenType === 'invite' ? 'Welcome! Set your account password.' : 'Choose a new password.';
+    // Let Supabase JS consume the token (it does so automatically via onAuthStateChange)
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+        currentUser = session.user;
+        loading.classList.add('hidden');
+        showScreen('setpw-screen');
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null; vaultKey = null; allEntries = []; entryMap.clear();
+        showScreen('auth-screen');
+      }
+    });
+    loading.classList.add('hidden');
+    showScreen('setpw-screen');
+    return;
+  }
+
+  const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
-    const { data } = await sb.from('user_settings').select('user_id').eq('user_id', currentUser.id).single();
-    await setupMasterScreen(!data);
+    await setupMasterScreen();
     loading.classList.add('hidden');
     showScreen('master-screen');
   } else {
@@ -1236,8 +1301,7 @@ async function init() {
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session) {
       currentUser = session.user;
-      const { data } = await sb.from('user_settings').select('user_id').eq('user_id', currentUser.id).single();
-      await setupMasterScreen(!data);
+      await setupMasterScreen();
       showScreen('master-screen');
     } else if (event === 'SIGNED_OUT') {
       currentUser = null; vaultKey = null; allEntries = []; entryMap.clear();
