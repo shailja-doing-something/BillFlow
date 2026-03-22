@@ -959,7 +959,17 @@ async function handleMaster() {
       const salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
       const key  = await deriveKey(pw, salt);
       const chk  = await decryptField(key, cfg.verification_iv, cfg.verification_blob);
-      if (chk !== 'billflow-vault-verified') { err.textContent = 'Incorrect master password.'; return; }
+      if (chk !== 'billflow-vault-verified') {
+        masterAttempts++;
+        const remaining = MAX_MASTER_ATTEMPTS - masterAttempts;
+        if (remaining <= 0) {
+          err.textContent = 'Too many failed attempts. Signing out.';
+          setTimeout(() => signOut(), 1500);
+        } else {
+          err.textContent = `Incorrect master password. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`;
+        }
+        return;
+      }
       vaultKey = key;
     }
     await loadVault();
@@ -1289,9 +1299,22 @@ function toast(msg, type) {
 
 // ── App init ───────────────────────────────────────────────────────
 const VAULT_ADMIN = 'shailja.dwivedi@fello.ai';
+let masterAttempts = 0;
+const MAX_MASTER_ATTEMPTS = 5;
 
 async function setupMasterScreen() {
-  const { data: cfg } = await sb.from('user_settings').select('id').limit(1).single();
+  masterAttempts = 0; // reset on each screen load
+  const { data: cfg, error: cfgErr } = await sb.from('user_settings').select('id').limit(1).single();
+  // PGRST116 = no rows (expected for new vault); anything else is a real DB/RLS error
+  if (cfgErr && cfgErr.code !== 'PGRST116') {
+    document.getElementById('m-title').textContent = 'Vault Error';
+    document.getElementById('m-sub').textContent = `DB error: ${cfgErr.message} (code: ${cfgErr.code})`;
+    document.getElementById('m-btn').disabled = true;
+    document.getElementById('m-confirm-wrap').style.display = 'none';
+    document.getElementById('m-pw').value = '';
+    document.getElementById('m-confirm').value = '';
+    return;
+  }
   const isAdmin = currentUser?.email === VAULT_ADMIN;
   const isNew = !cfg;
   if (isNew && !isAdmin) {
