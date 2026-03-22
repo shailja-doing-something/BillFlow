@@ -871,8 +871,9 @@ async function handleAuth() {
 }
 
 async function signOut() {
-  lockVault();
+  vaultKey = null; allEntries = []; entryMap.clear();
   await sb.auth.signOut();
+  currentUser = null;
   document.getElementById('a-email').value = '';
   document.getElementById('a-pw').value = '';
   document.getElementById('a-confirm').value = '';
@@ -926,6 +927,7 @@ async function handleMaster() {
   const btn = document.getElementById('m-btn');
   const err = document.getElementById('m-err');
   err.textContent = '';
+  if (!currentUser) { err.textContent = 'Session expired. Please sign in again.'; showScreen('auth-screen'); return; }
   if (!pw) { err.textContent = 'Enter your master password.'; return; }
   const isCreating = document.getElementById('m-confirm-wrap').style.display !== 'none';
   if (isCreating) {
@@ -1286,15 +1288,28 @@ function toast(msg, type) {
 }
 
 // ── App init ───────────────────────────────────────────────────────
+const VAULT_ADMIN = 'shailja.dwivedi@fello.ai';
+
 async function setupMasterScreen() {
   const { data: cfg } = await sb.from('user_settings').select('id').limit(1).single();
+  const isAdmin = currentUser?.email === VAULT_ADMIN;
   const isNew = !cfg;
-  document.getElementById('m-title').textContent = isNew ? 'Create Master Password' : 'Enter Master Password';
-  document.getElementById('m-sub').textContent = isNew
-    ? 'Set a master password to encrypt your vault. Store it safely — it cannot be recovered.'
-    : 'Decrypt your vault. This password never leaves your browser.';
-  document.getElementById('m-btn').textContent = isNew ? 'Create Vault' : 'Unlock Vault';
-  document.getElementById('m-confirm-wrap').style.display = isNew ? 'block' : 'none';
+  if (isNew && !isAdmin) {
+    // Non-admin, vault not set up yet — block access
+    document.getElementById('m-title').textContent = 'Vault Not Configured';
+    document.getElementById('m-sub').textContent = 'The vault has not been set up yet. Contact your administrator.';
+    document.getElementById('m-btn').textContent = 'Unlock Vault';
+    document.getElementById('m-btn').disabled = true;
+    document.getElementById('m-confirm-wrap').style.display = 'none';
+  } else {
+    document.getElementById('m-btn').disabled = false;
+    document.getElementById('m-title').textContent = isNew ? 'Create Master Password' : 'Enter Master Password';
+    document.getElementById('m-sub').textContent = isNew
+      ? 'Set a master password to encrypt your vault. Store it safely — it cannot be recovered.'
+      : 'Decrypt your vault. This password never leaves your browser.';
+    document.getElementById('m-btn').textContent = isNew ? 'Create Vault' : 'Unlock Vault';
+    document.getElementById('m-confirm-wrap').style.display = isNew ? 'block' : 'none';
+  }
   document.getElementById('m-pw').value = '';
   document.getElementById('m-confirm').value = '';
 }
