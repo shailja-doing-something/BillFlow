@@ -951,6 +951,7 @@ async function handleMaster() {
       });
       if (insErr) throw new Error(insErr.message);
       vaultKey = key;
+      await setupMasterScreen(); // flip UI to "Enter Master Password" for next lock
     } else {
       // Unlock existing vault
       const salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
@@ -969,10 +970,12 @@ async function handleMaster() {
   }
 }
 
-function lockVault() {
+async function lockVault() {
   vaultKey = null; allEntries = []; entryMap.clear();
   document.getElementById('m-pw').value = '';
+  document.getElementById('m-confirm').value = '';
   document.getElementById('m-err').textContent = '';
+  await setupMasterScreen();
   showScreen('master-screen');
 }
 
