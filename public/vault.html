@@ -6,38 +6,76 @@
   <title>BillFlow Vault</title>
   <!--
   ═══════════════════════════════════════════════════════════════════
-  BILLFLOW VAULT — SUPABASE SQL SCHEMA
-  Run this in Supabase SQL Editor before first use:
+  BILLFLOW VAULT — MIGRATION SQL
+  Run these in Supabase SQL Editor. ALTER ONLY — never DROP/RECREATE tables.
   ═══════════════════════════════════════════════════════════════════
 
-  create table vault_entries (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid references auth.users(id) on delete cascade not null,
-    service_name text not null,
-    category text not null,
-    tags text,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now(),
-    enc_username text, iv_username text,
-    enc_password text, iv_password text,
-    enc_url      text, iv_url      text,
-    enc_notes    text, iv_notes    text
-  );
+  -- 1. Add role + access-control columns to vault_members
+  alter table public.vault_members
+    add column if not exists role text not null default 'member',
+    -- 'admin' | 'manager' | 'member'
+    add column if not exists is_active boolean not null default true;
 
-  create table user_settings (
-    user_id uuid primary key references auth.users(id) on delete cascade,
-    pbkdf2_salt       text not null,
-    verification_blob text,
-    verification_iv   text
-  );
+  -- 2. Unique constraint on email
+  alter table public.vault_members
+    add constraint if not exists vault_members_email_unique unique (email);
 
-  alter table vault_entries enable row level security;
-  alter table user_settings enable row level security;
+  -- 3. Add sign-in tracking columns to user_settings
+  alter table public.user_settings
+    add column if not exists role text not null default 'member',
+    add column if not exists signin_method text null,
+    -- 'master_password' | 'otp'
+    add column if not exists last_signin_at timestamptz null,
+    add column if not exists signin_count integer not null default 0,
+    add column if not exists last_ip text null,
+    add column if not exists last_user_agent text null;
 
-  create policy "own entries only" on vault_entries
+  -- 4. Seed admin (safe to re-run)
+  insert into public.vault_members (email, role, is_active)
+    values ('shailja.dwivedi@fello.ai', 'admin', true)
+    on conflict (email) do update set role = 'admin', is_active = true;
+
+  -- 5. Add team members (repeat for each person):
+  -- insert into public.vault_members (email, role, is_active)
+  --   values ('teammate@fello.ai', 'member', true)
+  --   on conflict (email) do nothing;
+
+  -- 6. RLS POLICIES
+  --    Drop old shared-vault policies first if they exist:
+  -- drop policy if exists "shared vault entries" on public.vault_entries;
+  -- drop policy if exists "settings select" on public.user_settings;
+  -- drop policy if exists "settings insert" on public.user_settings;
+  -- drop policy if exists "settings update" on public.user_settings;
+  -- drop policy if exists "settings delete" on public.user_settings;
+
+  --    vault_members: SELECT open to all (required for pre-auth email check),
+  --    INSERT/UPDATE/DELETE restricted to admins only.
+  alter table public.vault_members enable row level security;
+
+  create policy "vault_members_select_all" on public.vault_members
+    for select using (true);
+
+  create policy "vault_members_write_admin" on public.vault_members
+    for insert with check (
+      exists (select 1 from public.user_settings where user_id = auth.uid() and role = 'admin')
+    );
+  create policy "vault_members_update_admin" on public.vault_members
+    for update using (
+      exists (select 1 from public.user_settings where user_id = auth.uid() and role = 'admin')
+    );
+  create policy "vault_members_delete_admin" on public.vault_members
+    for delete using (
+      exists (select 1 from public.user_settings where user_id = auth.uid() and role = 'admin')
+    );
+
+  --    user_settings: each user sees only their own row
+  --    (skip if "own settings only" policy already exists)
+  create policy "own settings only" on public.user_settings
     for all using (auth.uid() = user_id);
 
-  create policy "own settings only" on user_settings
+  --    vault_entries: each user sees only their own rows
+  --    (skip if "own entries only" policy already exists)
+  create policy "own entries only" on public.vault_entries
     for all using (auth.uid() = user_id);
 
   ═══════════════════════════════════════════════════════════════════
@@ -166,11 +204,6 @@
       background: none; border: none; color: var(--muted); cursor: pointer;
       font-size: 14px; line-height: 1; padding: 2px;
     }
-    .warning-box {
-      background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.22);
-      border-radius: 10px; padding: 12px 14px; font-size: 12px;
-      color: var(--amber); margin-bottom: 18px; line-height: 1.6;
-    }
     .btn-primary {
       width: 100%; padding: 12px; background: var(--cyan); color: #060910;
       border: none; border-radius: 10px; font-family: inherit;
@@ -180,6 +213,7 @@
     .btn-primary:disabled { opacity: 0.38; cursor: not-allowed; }
     .form-error {
       color: var(--red); font-size: 12px; margin-top: 10px; text-align: center;
+      min-height: 18px;
     }
     .form-link {
       background: none; border: none; color: var(--muted); font-size: 12px;
@@ -187,6 +221,44 @@
       transition: color 0.12s;
     }
     .form-link:hover { color: var(--text); }
+
+    /* ── Step 2 header (email + back button) ── */
+    .step2-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; padding: 10px 12px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 9px;
+    }
+    .step2-email {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;
+    }
+    .back-btn {
+      background: none; border: none; color: var(--muted); font-size: 11px;
+      font-weight: 600; cursor: pointer; font-family: inherit; flex-shrink: 0;
+      transition: color 0.12s; padding: 2px 0;
+    }
+    .back-btn:hover { color: var(--cyan); }
+
+    /* ── OTP section ── */
+    .otp-sent-msg {
+      font-size: 13px; color: var(--muted); margin-bottom: 18px;
+      line-height: 1.55; text-align: center;
+    }
+    .otp-sent-msg strong { color: var(--text); }
+    .otp-timer-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; min-height: 22px;
+    }
+    .otp-timer-text { font-size: 12px; color: var(--muted); }
+    .otp-resend-btn {
+      background: none; border: none; color: var(--cyan);
+      font-family: inherit; font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: opacity 0.12s;
+    }
+    .otp-resend-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Master screen ── */
     .master-icon {
       width: 54px; height: 54px;
       background: linear-gradient(135deg,rgba(0,212,255,0.14),rgba(0,212,255,0.04));
@@ -528,30 +600,87 @@
       <button class="auth-tab active" id="tab-in" onclick="switchTab('in')">Sign In</button>
       <button class="auth-tab" id="tab-up" onclick="switchTab('up')">Create Account</button>
     </div>
-    <div class="form-group">
-      <label class="form-label">Email</label>
-      <input type="email" id="a-email" class="form-input" placeholder="you@company.com" autocomplete="off">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Password</label>
-      <div class="input-wrap">
-        <input type="password" id="a-pw" class="form-input" placeholder="••••••••" autocomplete="off" onkeydown="if(event.key==='Enter')handleAuth()">
-        <button class="eye-btn" onclick="toggleVis('a-pw',this)">👁</button>
+
+    <!-- Step 1: Email (shared by both tabs) -->
+    <div id="auth-step1">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="a-email" class="form-input" placeholder="you@fello.ai"
+          autocomplete="off" onkeydown="if(event.key==='Enter')handleEmailCheck()">
       </div>
+      <button class="btn-primary" id="a-continue-btn" onclick="handleEmailCheck()">Continue</button>
+      <div id="a-err" class="form-error"></div>
     </div>
-    <div id="a-confirm-wrap" class="form-group" style="display:none">
-      <label class="form-label">Confirm Password</label>
-      <div class="input-wrap">
-        <input type="password" id="a-confirm" class="form-input" placeholder="••••••••" autocomplete="off">
-        <button class="eye-btn" onclick="toggleVis('a-confirm',this)">👁</button>
+
+    <!-- Step 2: Sign In -->
+    <div id="auth-step2-in" style="display:none">
+      <div class="step2-header">
+        <span class="step2-email" id="si-email-display"></span>
+        <button class="back-btn" onclick="goBackToStep1()">← Change</button>
       </div>
+
+      <!-- admin / manager: password -->
+      <div id="si-pw-section">
+        <div class="form-group">
+          <label class="form-label">Account Password</label>
+          <div class="input-wrap">
+            <input type="password" id="si-pw" class="form-input" placeholder="••••••••"
+              autocomplete="off" onkeydown="if(event.key==='Enter')handleSignIn()">
+            <button class="eye-btn" onclick="toggleVis('si-pw',this)">👁</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="si-btn" onclick="handleSignIn()">Sign In</button>
+      </div>
+
+      <!-- member: OTP -->
+      <div id="si-otp-section" style="display:none">
+        <p class="otp-sent-msg">A 6-digit code was sent to<br><strong id="otp-email-display"></strong></p>
+        <div class="form-group">
+          <label class="form-label">One-Time Password</label>
+          <input type="text" id="si-otp" class="form-input" placeholder="000000" maxlength="6"
+            autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*"
+            style="text-align:center;font-size:20px;letter-spacing:0.3em;font-family:'IBM Plex Mono',monospace"
+            onkeydown="if(event.key==='Enter')handleVerifyOtp()">
+        </div>
+        <div class="otp-timer-row">
+          <span id="otp-timer-text" class="otp-timer-text">Resend in <span id="otp-countdown">60</span>s</span>
+          <button id="otp-resend-btn" class="otp-resend-btn" onclick="resendOtp()" disabled>Resend OTP</button>
+        </div>
+        <button class="btn-primary" id="otp-verify-btn" onclick="handleVerifyOtp()">Verify &amp; Sign In</button>
+      </div>
+
+      <div id="a-si-err" class="form-error"></div>
     </div>
-    <button class="btn-primary" id="a-btn" onclick="handleAuth()">Sign In</button>
-    <div id="a-err" class="form-error"></div>
+
+    <!-- Step 2: Create Account -->
+    <div id="auth-step2-up" style="display:none">
+      <div class="step2-header">
+        <span class="step2-email" id="ca-email-display"></span>
+        <button class="back-btn" onclick="goBackToStep1()">← Change</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="ca-pw" class="form-input" placeholder="Min 8 characters"
+            autocomplete="new-password">
+          <button class="eye-btn" onclick="toggleVis('ca-pw',this)">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <div class="input-wrap">
+          <input type="password" id="ca-confirm" class="form-input" placeholder="••••••••"
+            autocomplete="new-password" onkeydown="if(event.key==='Enter')handleCreateAccount()">
+          <button class="eye-btn" onclick="toggleVis('ca-confirm',this)">👁</button>
+        </div>
+      </div>
+      <button class="btn-primary" id="ca-btn" onclick="handleCreateAccount()">Create Account</button>
+      <div id="a-ca-err" class="form-error"></div>
+    </div>
   </div>
 </div>
 
-<!-- Set Password Screen (after clicking invite / reset email link) -->
+<!-- Set Password Screen (recovery token from email link) -->
 <div id="setpw-screen" class="screen">
   <div class="auth-box">
     <div class="auth-logo">
@@ -575,7 +704,7 @@
         <button class="eye-btn" onclick="toggleVis('sp-confirm',this)">👁</button>
       </div>
     </div>
-    <button class="btn-primary" id="sp-btn" onclick="handleSetPassword()">Set Password & Continue</button>
+    <button class="btn-primary" id="sp-btn" onclick="handleSetPassword()">Set Password &amp; Continue</button>
     <div id="sp-err" class="form-error"></div>
   </div>
 </div>
@@ -589,7 +718,8 @@
     <div class="form-group">
       <label class="form-label">Master Password</label>
       <div class="input-wrap">
-        <input type="password" id="m-pw" class="form-input" placeholder="••••••••" autocomplete="off" onkeydown="if(event.key==='Enter')handleMaster()">
+        <input type="password" id="m-pw" class="form-input" placeholder="••••••••"
+          autocomplete="off" onkeydown="if(event.key==='Enter')handleMaster()">
         <button class="eye-btn" onclick="toggleVis('m-pw',this)">👁</button>
       </div>
     </div>
@@ -600,7 +730,7 @@
         <button class="eye-btn" onclick="toggleVis('m-confirm',this)">👁</button>
       </div>
     </div>
-<button class="btn-primary" id="m-btn" onclick="handleMaster()">Unlock Vault</button>
+    <button class="btn-primary" id="m-btn" onclick="handleMaster()">Unlock Vault</button>
     <div id="m-err" class="form-error"></div>
     <button class="form-link" onclick="signOut()">Sign out</button>
   </div>
@@ -704,7 +834,8 @@
       <div class="mfg full">
         <label class="m-label">Password / Secret</label>
         <div class="pw-row">
-          <input type="password" id="f-pw" class="m-input mono" placeholder="••••••••" autocomplete="off" oninput="updateStrength(this.value)">
+          <input type="password" id="f-pw" class="m-input mono" placeholder="••••••••" autocomplete="off"
+            oninput="updateStrength(this.value)">
           <div class="pw-btns">
             <button class="pw-btn" onclick="toggleVis('f-pw',this)" title="Show/hide">👁</button>
             <button class="pw-btn" onclick="toggleGen()" title="Generate">⚡</button>
@@ -750,7 +881,7 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
-//  CONFIG — replace these before deploying
+//  CONFIG
 // ═══════════════════════════════════════════════════════════════════
 const SUPABASE_URL      = 'https://cqrfboirwwnlmpzfdbyl.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxcmZib2lyd3dubG1wemZkYnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNTAwNTEsImV4cCI6MjA2NTcyNjA1MX0.BHTnxhXvGBlvsrxKmon7fqnUqISEXa43EjVJIk0pFIA';
@@ -760,13 +891,26 @@ const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── State ──────────────────────────────────────────────────────────
-let vaultKey    = null;   // AES-256 key — lives only here, never stored
-let currentUser = null;
-let allEntries  = [];     // array of decrypted entry objects
-let entryMap    = new Map(); // id → entry (for O(1) lookup in event handlers)
-let currentCat  = 'all';
-let searchQ     = '';
-let editingId   = null;
+let vaultKey     = null;   // AES-256 key — lives only here, never stored
+let currentUser  = null;
+let allEntries   = [];
+let entryMap     = new Map();
+let currentCat   = 'all';
+let searchQ      = '';
+let editingId    = null;
+
+// Auth flow state
+let authMode     = 'in';   // 'in' | 'up'
+let authStep     = 1;      // 1 (email) | 2 (method)
+let pendingEmail = '';
+let pendingRole  = '';     // 'admin' | 'manager' | 'member'
+let otpTimer     = null;
+let otpSeconds   = 0;
+let handlingAuth = false;  // prevents onAuthStateChange double-navigation
+
+// Brute-force protection
+let masterAttempts = 0;
+const MAX_MASTER_ATTEMPTS = 5;
 
 // ── Crypto ─────────────────────────────────────────────────────────
 async function deriveKey(masterPassword, salt) {
@@ -821,87 +965,287 @@ function scoreLabel(s) {
   return s >= 80 ? 'Very Strong' : s >= 60 ? 'Strong' : s >= 40 ? 'Fair' : s >= 20 ? 'Weak' : 'Very Weak';
 }
 
-// ── Auth ───────────────────────────────────────────────────────────
-let authMode = 'in';
+// ── IP helper ──────────────────────────────────────────────────────
+async function fetchIp() {
+  try {
+    const { ip } = await fetch('https://api.ipify.org?format=json').then(r => r.json());
+    return ip || null;
+  } catch { return null; }
+}
+
+// ── Auth: Step 1 — email check ─────────────────────────────────────
 function switchTab(mode) {
   authMode = mode;
   document.getElementById('tab-in').classList.toggle('active', mode === 'in');
   document.getElementById('tab-up').classList.toggle('active', mode === 'up');
-  document.getElementById('a-confirm-wrap').style.display = mode === 'up' ? 'block' : 'none';
-  document.getElementById('a-btn').textContent = mode === 'up' ? 'Create Account' : 'Sign In';
-  document.getElementById('a-err').textContent = '';
+  goBackToStep1();
 }
 
-async function handleAuth() {
-  const email = document.getElementById('a-email').value.trim();
-  const pw    = document.getElementById('a-pw').value;
-  const btn   = document.getElementById('a-btn');
+function goBackToStep1() {
+  authStep = 1;
+  clearOtpTimer();
+  document.getElementById('auth-step1').style.display = '';
+  document.getElementById('auth-step2-in').style.display = 'none';
+  document.getElementById('auth-step2-up').style.display = 'none';
+  document.getElementById('a-err').textContent = '';
+  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('a-ca-err').textContent = '';
+  document.getElementById('si-pw').value = '';
+  document.getElementById('si-otp').value = '';
+  document.getElementById('ca-pw').value = '';
+  document.getElementById('ca-confirm').value = '';
+}
+
+async function handleEmailCheck() {
+  const email = document.getElementById('a-email').value.trim().toLowerCase();
   const err   = document.getElementById('a-err');
+  const btn   = document.getElementById('a-continue-btn');
   err.textContent = '';
-  if (!email || !pw) { err.textContent = 'Email and password required.'; return; }
+  if (!email) { err.textContent = 'Enter your email address.'; return; }
   btn.disabled = true; btn.textContent = '…';
   try {
-    if (authMode === 'up') {
-      const confirm = document.getElementById('a-confirm').value;
-      if (pw !== confirm) { err.textContent = 'Passwords do not match.'; return; }
-      if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
-      // Create account via server-side API (uses service role — no email confirmation needed)
-      const res = await fetch('/api/vault/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pw }),
-      });
-      const text = await res.text();
-      let json;
-      try { json = JSON.parse(text); } catch(_) { throw new Error(`Server error (${res.status}): ${text || '(empty response)'}`); }
-      if (!res.ok) throw new Error(json.error || 'Registration failed.');
-      // Sign in immediately after account creation
-      const { error: signInErr } = await sb.auth.signInWithPassword({ email, password: pw });
-      if (signInErr) throw signInErr;
+    const { data, error } = await sb
+      .from('vault_members')
+      .select('role, is_active')
+      .eq('email', email)
+      .eq('is_active', true)
+      .single();
+    if (error || !data) {
+      err.textContent = 'You are not authorised to access BillFlow Vault. Contact your admin.';
+      return;
+    }
+    pendingEmail = email;
+    pendingRole  = data.role;
+    authStep = 2;
+    document.getElementById('auth-step1').style.display = 'none';
+    if (authMode === 'in') {
+      showSignInStep2();
     } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-      if (error) throw error;
+      showCreateAccountStep2();
     }
   } catch(e) {
-    err.textContent = e.message || 'Authentication failed.';
+    err.textContent = e.message || 'Error checking access. Try again.';
   } finally {
-    btn.disabled = false;
-    btn.textContent = authMode === 'up' ? 'Create Account' : 'Sign In';
+    btn.disabled = false; btn.textContent = 'Continue';
   }
 }
 
+// ── Auth: Step 2 — Sign In ─────────────────────────────────────────
+function showSignInStep2() {
+  document.getElementById('auth-step2-in').style.display = '';
+  document.getElementById('si-email-display').textContent = pendingEmail;
+  const isPasswordRole = pendingRole === 'admin' || pendingRole === 'manager';
+  document.getElementById('si-pw-section').style.display = isPasswordRole ? '' : 'none';
+  document.getElementById('si-otp-section').style.display = isPasswordRole ? 'none' : '';
+  if (isPasswordRole) {
+    setTimeout(() => document.getElementById('si-pw').focus(), 80);
+  } else {
+    document.getElementById('otp-email-display').textContent = pendingEmail;
+    sendOtp();
+  }
+}
+
+async function handleSignIn() {
+  const pw  = document.getElementById('si-pw').value;
+  const btn = document.getElementById('si-btn');
+  const err = document.getElementById('a-si-err');
+  err.textContent = '';
+  if (!pw) { err.textContent = 'Enter your password.'; return; }
+  btn.disabled = true; btn.textContent = '…';
+  handlingAuth = true;
+  try {
+    const ip = await fetchIp();
+    const { data, error } = await sb.auth.signInWithPassword({ email: pendingEmail, password: pw });
+    if (error) throw new Error('Incorrect password. Try again.');
+    currentUser = data.user;
+    await updateSigninTracking('master_password', ip);
+    await setupMasterScreen();
+    showScreen('master-screen');
+  } catch(e) {
+    err.textContent = e.message || 'Sign in failed.';
+    handlingAuth = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+// ── Auth: OTP (member sign-in) ─────────────────────────────────────
+async function sendOtp() {
+  document.getElementById('a-si-err').textContent = '';
+  const { error } = await sb.auth.signInWithOtp({
+    email: pendingEmail,
+    options: { shouldCreateUser: false }
+  });
+  if (error) {
+    document.getElementById('a-si-err').textContent = error.message || 'Failed to send OTP. Ensure your account exists.';
+    return;
+  }
+  startOtpCountdown();
+}
+
+async function resendOtp() {
+  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('si-otp').value = '';
+  await sendOtp();
+}
+
+function startOtpCountdown() {
+  clearOtpTimer();
+  otpSeconds = 60;
+  const countdown = document.getElementById('otp-countdown');
+  const timerText = document.getElementById('otp-timer-text');
+  const resendBtn = document.getElementById('otp-resend-btn');
+  timerText.style.display = '';
+  resendBtn.disabled = true;
+  countdown.textContent = otpSeconds;
+  otpTimer = setInterval(() => {
+    otpSeconds--;
+    countdown.textContent = otpSeconds;
+    if (otpSeconds <= 0) {
+      clearOtpTimer();
+      timerText.style.display = 'none';
+      resendBtn.disabled = false;
+    }
+  }, 1000);
+}
+
+function clearOtpTimer() {
+  if (otpTimer) { clearInterval(otpTimer); otpTimer = null; }
+}
+
+async function handleVerifyOtp() {
+  const token = document.getElementById('si-otp').value.trim();
+  const btn   = document.getElementById('otp-verify-btn');
+  const err   = document.getElementById('a-si-err');
+  err.textContent = '';
+  if (!token || token.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
+  btn.disabled = true; btn.textContent = '…';
+  handlingAuth = true;
+  try {
+    const ip = await fetchIp();
+    const { data, error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: 'email' });
+    if (error) throw new Error('Invalid or expired OTP.');
+    currentUser = data.user;
+    clearOtpTimer();
+    await updateSigninTracking('otp', ip);
+    await setupMasterScreen();
+    showScreen('master-screen');
+  } catch(e) {
+    err.textContent = e.message || 'OTP verification failed.';
+    handlingAuth = false;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Verify & Sign In';
+  }
+}
+
+// ── Auth: Create Account ───────────────────────────────────────────
+function showCreateAccountStep2() {
+  document.getElementById('auth-step2-up').style.display = '';
+  document.getElementById('ca-email-display').textContent = pendingEmail;
+  setTimeout(() => document.getElementById('ca-pw').focus(), 80);
+}
+
+async function handleCreateAccount() {
+  const pw      = document.getElementById('ca-pw').value;
+  const confirm = document.getElementById('ca-confirm').value;
+  const btn     = document.getElementById('ca-btn');
+  const err     = document.getElementById('a-ca-err');
+  err.textContent = '';
+  if (!pw) { err.textContent = 'Enter a password.'; return; }
+  if (pw !== confirm) { err.textContent = 'Passwords do not match.'; return; }
+  if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
+  btn.disabled = true; btn.textContent = '…';
+  handlingAuth = true;
+  try {
+    const ip = await fetchIp();
+    const { data, error } = await sb.auth.signUp({ email: pendingEmail, password: pw });
+    if (error) throw new Error(error.message || 'Registration failed.');
+    if (!data.session) {
+      // Email confirmation required (Supabase setting) — user must confirm first
+      err.style.color = 'var(--green)';
+      err.textContent = 'Account created! Check your email to confirm your account, then sign in.';
+      btn.textContent = 'Check your email';
+      handlingAuth = false;
+      return;
+    }
+    currentUser = data.user;
+    // Insert user_settings row: salt + role + initial sign-in tracking
+    const salt    = crypto.getRandomValues(new Uint8Array(16));
+    const saltB64 = btoa(String.fromCharCode(...salt));
+    const { error: insErr } = await sb.from('user_settings').insert({
+      user_id:        currentUser.id,
+      pbkdf2_salt:    saltB64,
+      role:           pendingRole,
+      signin_method:  'master_password',
+      last_signin_at: new Date().toISOString(),
+      signin_count:   1,
+      last_ip:        ip,
+      last_user_agent: navigator.userAgent,
+    });
+    if (insErr) throw new Error(insErr.message);
+    // Notify admin (fire-and-forget)
+    sb.functions.invoke('notify-admin', {
+      body: { newUserEmail: pendingEmail, role: pendingRole, createdAt: new Date().toISOString() }
+    }).catch(() => {});
+    await setupMasterScreen();
+    showScreen('master-screen');
+  } catch(e) {
+    err.style.color = 'var(--red)';
+    err.textContent = e.message || 'Account creation failed.';
+    btn.disabled = false; btn.textContent = 'Create Account';
+    handlingAuth = false;
+  }
+}
+
+// ── Sign-in tracking ───────────────────────────────────────────────
+async function updateSigninTracking(method, ip) {
+  if (!currentUser) return;
+  try {
+    const { data: cfg } = await sb
+      .from('user_settings')
+      .select('signin_count')
+      .eq('user_id', currentUser.id)
+      .single();
+    const newCount = (cfg?.signin_count || 0) + 1;
+    await sb.from('user_settings').update({
+      signin_method:   method,
+      last_signin_at:  new Date().toISOString(),
+      signin_count:    newCount,
+      last_ip:         ip,
+      last_user_agent: navigator.userAgent,
+    }).eq('user_id', currentUser.id);
+  } catch(_) { /* non-critical */ }
+}
+
+// ── Sign out ───────────────────────────────────────────────────────
 async function signOut() {
   vaultKey = null; allEntries = []; entryMap.clear();
+  clearOtpTimer();
   await sb.auth.signOut();
   currentUser = null;
+  pendingEmail = ''; pendingRole = '';
+  authStep = 1; authMode = 'in';
+  // Reset auth screen
+  document.getElementById('tab-in').classList.add('active');
+  document.getElementById('tab-up').classList.remove('active');
+  document.getElementById('auth-step1').style.display = '';
+  document.getElementById('auth-step2-in').style.display = 'none';
+  document.getElementById('auth-step2-up').style.display = 'none';
   document.getElementById('a-email').value = '';
-  document.getElementById('a-pw').value = '';
-  document.getElementById('a-confirm').value = '';
+  document.getElementById('si-pw').value = '';
+  document.getElementById('si-otp').value = '';
+  document.getElementById('ca-pw').value = '';
+  document.getElementById('ca-confirm').value = '';
   document.getElementById('a-err').textContent = '';
+  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('a-ca-err').textContent = '';
+  document.getElementById('m-pw').value = '';
+  document.getElementById('m-confirm').value = '';
+  document.getElementById('m-err').textContent = '';
   showScreen('auth-screen');
 }
 
-// ── Password reset / first-time setup ──────────────────────────────
-function showResetForm() {
-  const wrap = document.getElementById('reset-wrap');
-  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
-}
-
-async function sendReset() {
-  const email = document.getElementById('reset-email').value.trim();
-  const btn   = document.getElementById('reset-btn');
-  const msg   = document.getElementById('reset-msg');
-  msg.textContent = '';
-  if (!email) { msg.textContent = 'Enter your email.'; return; }
-  btn.disabled = true; btn.textContent = 'Sending…';
-  const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href,
-  });
-  btn.disabled = false; btn.textContent = 'Send Reset Link';
-  msg.style.color = error ? 'var(--red)' : 'var(--green)';
-  msg.textContent = error ? (error.message || 'Failed to send.') : 'Check your email for the reset link.';
-}
-
+// ── Password recovery (from reset email link) ──────────────────────
 async function handleSetPassword() {
   const pw      = document.getElementById('sp-pw').value;
   const confirm = document.getElementById('sp-confirm').value;
@@ -912,16 +1256,51 @@ async function handleSetPassword() {
   if (pw !== confirm) { err.textContent = 'Passwords do not match.'; return; }
   if (pw.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
   btn.disabled = true; btn.textContent = 'Setting…';
-  const { error } = await sb.auth.updateUser({ password: pw });
+  handlingAuth = true;
+  const { data, error } = await sb.auth.updateUser({ password: pw });
   btn.disabled = false; btn.textContent = 'Set Password & Continue';
-  if (error) { err.textContent = error.message || 'Failed to set password.'; return; }
-  // Clear hash from URL then go to master password screen
+  if (error) {
+    err.textContent = error.message || 'Failed to set password.';
+    handlingAuth = false;
+    return;
+  }
+  if (data.user) currentUser = data.user;
   history.replaceState(null, '', window.location.pathname);
   await setupMasterScreen();
   showScreen('master-screen');
 }
 
 // ── Master password ────────────────────────────────────────────────
+async function setupMasterScreen() {
+  masterAttempts = 0;
+  if (!currentUser) return;
+  const { data: cfg, error: cfgErr } = await sb
+    .from('user_settings')
+    .select('pbkdf2_salt, verification_blob')
+    .eq('user_id', currentUser.id)
+    .single();
+  // PGRST116 = no row (admin first-time login without Create Account)
+  if (cfgErr && cfgErr.code !== 'PGRST116') {
+    document.getElementById('m-title').textContent = 'Vault Error';
+    document.getElementById('m-sub').textContent = `DB error: ${cfgErr.message} (code: ${cfgErr.code})`;
+    document.getElementById('m-btn').disabled = true;
+    document.getElementById('m-confirm-wrap').style.display = 'none';
+    document.getElementById('m-pw').value = '';
+    document.getElementById('m-confirm').value = '';
+    return;
+  }
+  const isNew = !cfg || !cfg.verification_blob;
+  document.getElementById('m-btn').disabled = false;
+  document.getElementById('m-title').textContent = isNew ? 'Create Master Password' : 'Enter Master Password';
+  document.getElementById('m-sub').textContent = isNew
+    ? 'Set a master password to encrypt your vault. Store it safely — it cannot be recovered.'
+    : 'Decrypt your vault. This password never leaves your browser.';
+  document.getElementById('m-btn').textContent = isNew ? 'Create Vault' : 'Unlock Vault';
+  document.getElementById('m-confirm-wrap').style.display = isNew ? 'block' : 'none';
+  document.getElementById('m-pw').value = '';
+  document.getElementById('m-confirm').value = '';
+}
+
 async function handleMaster() {
   const pw  = document.getElementById('m-pw').value;
   const btn = document.getElementById('m-btn');
@@ -938,24 +1317,44 @@ async function handleMaster() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     const { data: cfg } = await sb
-      .from('user_settings').select('pbkdf2_salt,verification_blob,verification_iv')
-      .limit(1).single();
-    if (!cfg) {
-      // First-time setup: create master password
-      const salt = crypto.getRandomValues(new Uint8Array(32));
-      const key  = await deriveKey(pw, salt);
+      .from('user_settings')
+      .select('pbkdf2_salt, verification_blob, verification_iv')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (!cfg || !cfg.verification_blob) {
+      // Create vault: derive key from existing salt (or generate if row missing entirely)
+      let salt;
+      if (cfg?.pbkdf2_salt) {
+        salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
+      } else {
+        salt = crypto.getRandomValues(new Uint8Array(16));
+      }
+      const key = await deriveKey(pw, salt);
       const { iv: viv, ct: vblob } = await encryptField(key, 'billflow-vault-verified');
-      const { error: insErr } = await sb.from('user_settings').insert({
-        user_id: currentUser.id,
-        pbkdf2_salt: btoa(String.fromCharCode(...salt)),
-        verification_blob: vblob,
-        verification_iv: viv,
-      });
-      if (insErr) throw new Error(insErr.message);
+      const saltB64 = btoa(String.fromCharCode(...salt));
+      if (cfg) {
+        // Row exists (from Create Account) — update with verification blob
+        const { error: updErr } = await sb.from('user_settings').update({
+          pbkdf2_salt:       saltB64,
+          verification_blob: vblob,
+          verification_iv:   viv,
+        }).eq('user_id', currentUser.id);
+        if (updErr) throw new Error(updErr.message);
+      } else {
+        // No row (admin first login via Sign In without Create Account) — insert
+        const { error: insErr } = await sb.from('user_settings').insert({
+          user_id:           currentUser.id,
+          pbkdf2_salt:       saltB64,
+          verification_blob: vblob,
+          verification_iv:   viv,
+          role:              'admin',
+        });
+        if (insErr) throw new Error(insErr.message);
+      }
       vaultKey = key;
-      await setupMasterScreen(); // flip UI to "Enter Master Password" for next lock
     } else {
-      // Unlock existing vault
+      // Unlock: verify master password
       const salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
       const key  = await deriveKey(pw, salt);
       const chk  = await decryptField(key, cfg.verification_iv, cfg.verification_blob);
@@ -1026,7 +1425,7 @@ async function saveEntry() {
       encryptField(vaultKey, document.getElementById('f-notes').value),
     ]);
     const payload = {
-      user_id: currentUser.id,
+      user_id:      currentUser.id,
       service_name: name,
       category:     document.getElementById('f-cat').value,
       tags:         document.getElementById('f-tags').value,
@@ -1061,34 +1460,6 @@ async function deleteEntry(id) {
   entryMap.delete(id);
   renderVault(); updateHealth();
   toast('Entry deleted.', 'i');
-}
-
-// ── Seed data ──────────────────────────────────────────────────────
-async function seedVault() {
-  const seeds = [
-    { service_name:'OpenAI Console',    category:'LLM & AI Tools',  username:'admin@fello.ai', password:'change-me-openai',    url:'https://platform.openai.com',      notes:'GPT-4o mini API access' },
-    { service_name:'Anthropic Console', category:'LLM & AI Tools',  username:'admin@fello.ai', password:'change-me-anthropic', url:'https://console.anthropic.com',    notes:'Claude API access' },
-    { service_name:'GitHub',            category:'Projects',        username:'FelloInnovations',password:'change-me-github',   url:'https://github.com/FelloInnovations', notes:'Organization account' },
-    { service_name:'Railway Dashboard', category:'Projects',        username:'admin@fello.ai', password:'change-me-railway',   url:'https://railway.app',              notes:'BillFlow deployment' },
-    { service_name:'HubSpot CRM',       category:'HubSpot & CRM',  username:'admin@fello.ai', password:'change-me-hubspot',   url:'https://app.hubspot.com',          notes:'Data enrichment + CRM' },
-    { service_name:'Google Workspace',  category:'General & Other', username:'admin@fello.ai', password:'change-me-google',    url:'https://workspace.google.com',     notes:'Company Google account' },
-  ];
-  for (const s of seeds) {
-    const [eu, ep, eurl, en] = await Promise.all([
-      encryptField(vaultKey, s.username),
-      encryptField(vaultKey, s.password),
-      encryptField(vaultKey, s.url),
-      encryptField(vaultKey, s.notes),
-    ]);
-    await sb.from('vault_entries').insert({
-      user_id: currentUser.id, service_name: s.service_name, category: s.category, tags: '',
-      enc_username: eu.ct,   iv_username: eu.iv,
-      enc_password: ep.ct,   iv_password: ep.iv,
-      enc_url:      eurl.ct, iv_url:      eurl.iv,
-      enc_notes:    en.ct,   iv_notes:    en.iv,
-    });
-  }
-  await loadVault();
 }
 
 // ── Category config ────────────────────────────────────────────────
@@ -1298,76 +1669,35 @@ function toast(msg, type) {
 }
 
 // ── App init ───────────────────────────────────────────────────────
-const VAULT_ADMIN = 'shailja.dwivedi@fello.ai';
-let masterAttempts = 0;
-const MAX_MASTER_ATTEMPTS = 5;
-
-async function setupMasterScreen() {
-  masterAttempts = 0; // reset on each screen load
-  const { data: cfg, error: cfgErr } = await sb.from('user_settings').select('pbkdf2_salt').limit(1).single();
-  // PGRST116 = no rows (expected for new vault); anything else is a real DB/RLS error
-  if (cfgErr && cfgErr.code !== 'PGRST116') {
-    document.getElementById('m-title').textContent = 'Vault Error';
-    document.getElementById('m-sub').textContent = `DB error: ${cfgErr.message} (code: ${cfgErr.code})`;
-    document.getElementById('m-btn').disabled = true;
-    document.getElementById('m-confirm-wrap').style.display = 'none';
-    document.getElementById('m-pw').value = '';
-    document.getElementById('m-confirm').value = '';
-    return;
-  }
-  const isAdmin = currentUser?.email === VAULT_ADMIN;
-  const isNew = !cfg;
-  if (isNew && !isAdmin) {
-    // Non-admin, vault not set up yet — block access
-    document.getElementById('m-title').textContent = 'Vault Not Configured';
-    document.getElementById('m-sub').textContent = 'The vault has not been set up yet. Contact your administrator.';
-    document.getElementById('m-btn').textContent = 'Unlock Vault';
-    document.getElementById('m-btn').disabled = true;
-    document.getElementById('m-confirm-wrap').style.display = 'none';
-  } else {
-    document.getElementById('m-btn').disabled = false;
-    document.getElementById('m-title').textContent = isNew ? 'Create Master Password' : 'Enter Master Password';
-    document.getElementById('m-sub').textContent = isNew
-      ? 'Set a master password to encrypt your vault. Store it safely — it cannot be recovered.'
-      : 'Decrypt your vault. This password never leaves your browser.';
-    document.getElementById('m-btn').textContent = isNew ? 'Create Vault' : 'Unlock Vault';
-    document.getElementById('m-confirm-wrap').style.display = isNew ? 'block' : 'none';
-  }
-  document.getElementById('m-pw').value = '';
-  document.getElementById('m-confirm').value = '';
-}
-
 async function init() {
   const loading = document.getElementById('loading-screen');
 
-  // Detect token_hash in query params (from custom email template link)
+  // Detect token_hash in query params (custom email link — e.g. password recovery)
   const qp = new URLSearchParams(window.location.search);
   const tokenHash = qp.get('token_hash');
-  const qpType = qp.get('type');
+  const qpType    = qp.get('type');
   if (tokenHash && qpType === 'recovery') {
-    const sub = document.getElementById('setpw-sub');
-    sub.textContent = 'Choose a new password.';
+    document.getElementById('setpw-sub').textContent = 'Choose a new password.';
     const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
     if (!error && data.session) {
       currentUser = data.session.user;
-      // Clean the token from URL so refresh doesn't re-trigger
       history.replaceState(null, '', window.location.pathname);
     }
     loading.classList.add('hidden');
     showScreen('setpw-screen');
-    sb.auth.onAuthStateChange((event, session) => {
+    sb.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') { currentUser = null; vaultKey = null; allEntries = []; entryMap.clear(); showScreen('auth-screen'); }
     });
     return;
   }
 
-  // Detect invite or password-reset token in URL hash (legacy / VaultAuthRedirect path)
-  const hash = new URLSearchParams(window.location.hash.slice(1));
+  // Detect invite or recovery token in URL hash (legacy Supabase redirect path)
+  const hash      = new URLSearchParams(window.location.hash.slice(1));
   const tokenType = hash.get('type');
   if (tokenType === 'invite' || tokenType === 'recovery') {
-    const sub = document.getElementById('setpw-sub');
-    sub.textContent = tokenType === 'invite' ? 'Welcome! Set your account password.' : 'Choose a new password.';
-    // Let Supabase JS consume the token (it does so automatically via onAuthStateChange)
+    document.getElementById('setpw-sub').textContent =
+      tokenType === 'invite' ? 'Welcome! Set your account password.' : 'Choose a new password.';
+    handlingAuth = true;
     sb.auth.onAuthStateChange(async (event, session) => {
       if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
         currentUser = session.user;
@@ -1383,6 +1713,7 @@ async function init() {
     return;
   }
 
+  // Normal init: check for existing session
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
@@ -1395,13 +1726,13 @@ async function init() {
   }
 
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
+    if (event === 'SIGNED_IN' && session && !handlingAuth) {
       currentUser = session.user;
       await setupMasterScreen();
       showScreen('master-screen');
     } else if (event === 'SIGNED_OUT') {
       currentUser = null; vaultKey = null; allEntries = []; entryMap.clear();
-      showScreen('auth-screen');
+      if (!handlingAuth) showScreen('auth-screen');
     }
   });
 }
