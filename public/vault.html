@@ -258,6 +258,23 @@
     }
     .otp-resend-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+    /* ── Method selection cards ── */
+    .method-cards { display: flex; flex-direction: column; gap: 10px; }
+    .method-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px; background: var(--card2);
+      border: 1px solid var(--border2); border-radius: 12px;
+      cursor: pointer; text-align: left; width: 100%;
+      font-family: inherit; color: var(--text);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .method-card:hover { border-color: var(--cyan); background: rgba(0,212,255,0.04); }
+    .method-card-icon { font-size: 22px; flex-shrink: 0; }
+    .method-card-body { flex: 1; min-width: 0; }
+    .method-card-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .method-card-desc { font-size: 12px; color: var(--muted); }
+    .method-card-arrow { font-size: 16px; color: var(--muted); flex-shrink: 0; }
+
     /* ── Master screen ── */
     .master-icon {
       width: 54px; height: 54px;
@@ -612,44 +629,70 @@
       <div id="a-err" class="form-error"></div>
     </div>
 
-    <!-- Step 2: Sign In -->
+    <!-- Step 2: Choose Sign-In Method -->
     <div id="auth-step2-in" style="display:none">
       <div class="step2-header">
         <span class="step2-email" id="si-email-display"></span>
         <button class="back-btn" onclick="goBackToStep1()">← Change</button>
       </div>
-
-      <!-- admin / manager: password -->
-      <div id="si-pw-section">
-        <div class="form-group">
-          <label class="form-label">Account Password</label>
-          <div class="input-wrap">
-            <input type="password" id="si-pw" class="form-input" placeholder="••••••••"
-              autocomplete="off" onkeydown="if(event.key==='Enter')handleSignIn()">
-            <button class="eye-btn" onclick="toggleVis('si-pw',this)">👁</button>
+      <div class="method-cards">
+        <button class="method-card" onclick="selectMethod('password')">
+          <div class="method-card-icon">🔐</div>
+          <div class="method-card-body">
+            <div class="method-card-title">Master Password</div>
+            <div class="method-card-desc">Sign in with your account password</div>
           </div>
-        </div>
-        <button class="btn-primary" id="si-btn" onclick="handleSignIn()">Sign In</button>
+          <div class="method-card-arrow">›</div>
+        </button>
+        <button class="method-card" onclick="selectMethod('otp')">
+          <div class="method-card-icon">📧</div>
+          <div class="method-card-body">
+            <div class="method-card-title">Email OTP</div>
+            <div class="method-card-desc">Get a one-time code sent to your email</div>
+          </div>
+          <div class="method-card-arrow">›</div>
+        </button>
       </div>
+    </div>
 
-      <!-- member: OTP -->
-      <div id="si-otp-section" style="display:none">
-        <p class="otp-sent-msg">A 6-digit code was sent to<br><strong id="otp-email-display"></strong></p>
-        <div class="form-group">
-          <label class="form-label">One-Time Password</label>
-          <input type="text" id="si-otp" class="form-input" placeholder="000000" maxlength="6"
-            autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*"
-            style="text-align:center;font-size:20px;letter-spacing:0.3em;font-family:'IBM Plex Mono',monospace"
-            onkeydown="if(event.key==='Enter')handleVerifyOtp()">
-        </div>
-        <div class="otp-timer-row">
-          <span id="otp-timer-text" class="otp-timer-text">Resend in <span id="otp-countdown">60</span>s</span>
-          <button id="otp-resend-btn" class="otp-resend-btn" onclick="resendOtp()" disabled>Resend OTP</button>
-        </div>
-        <button class="btn-primary" id="otp-verify-btn" onclick="handleVerifyOtp()">Verify &amp; Sign In</button>
+    <!-- Step 3a: Password -->
+    <div id="auth-step3-pw" style="display:none">
+      <div class="step2-header">
+        <span class="step2-email" id="si-email-display-pw"></span>
+        <button class="back-btn" onclick="goBackToStep2()">← Back</button>
       </div>
+      <div class="form-group">
+        <label class="form-label">Account Password</label>
+        <div class="input-wrap">
+          <input type="password" id="si-pw" class="form-input" placeholder="••••••••"
+            autocomplete="off" onkeydown="if(event.key==='Enter')handleSignIn()">
+          <button class="eye-btn" onclick="toggleVis('si-pw',this)">👁</button>
+        </div>
+      </div>
+      <button class="btn-primary" id="si-btn" onclick="handleSignIn()">Sign In</button>
+      <div id="a-pw-err" class="form-error"></div>
+    </div>
 
-      <div id="a-si-err" class="form-error"></div>
+    <!-- Step 3b: OTP -->
+    <div id="auth-step3-otp" style="display:none">
+      <div class="step2-header">
+        <span class="step2-email" id="si-email-display-otp"></span>
+        <button class="back-btn" onclick="goBackToStep2()">← Back</button>
+      </div>
+      <p class="otp-sent-msg">A 6-digit code was sent to<br><strong id="otp-email-display"></strong></p>
+      <div class="form-group">
+        <label class="form-label">One-Time Password</label>
+        <input type="text" id="si-otp" class="form-input" placeholder="000000" maxlength="6"
+          autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*"
+          style="text-align:center;font-size:20px;letter-spacing:0.3em;font-family:'IBM Plex Mono',monospace"
+          onkeydown="if(event.key==='Enter')handleVerifyOtp()">
+      </div>
+      <div class="otp-timer-row">
+        <span id="otp-timer-text" class="otp-timer-text">Resend in <span id="otp-countdown">60</span>s</span>
+        <button id="otp-resend-btn" class="otp-resend-btn" onclick="resendOtp()" disabled>Resend OTP</button>
+      </div>
+      <button class="btn-primary" id="otp-verify-btn" onclick="handleVerifyOtp()">Verify &amp; Sign In</button>
+      <div id="a-otp-err" class="form-error"></div>
     </div>
 
     <!-- Step 2: Create Account -->
@@ -986,14 +1029,28 @@ function goBackToStep1() {
   clearOtpTimer();
   document.getElementById('auth-step1').style.display = '';
   document.getElementById('auth-step2-in').style.display = 'none';
+  document.getElementById('auth-step3-pw').style.display = 'none';
+  document.getElementById('auth-step3-otp').style.display = 'none';
   document.getElementById('auth-step2-up').style.display = 'none';
   document.getElementById('a-err').textContent = '';
-  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('a-pw-err').textContent = '';
+  document.getElementById('a-otp-err').textContent = '';
   document.getElementById('a-ca-err').textContent = '';
   document.getElementById('si-pw').value = '';
   document.getElementById('si-otp').value = '';
   document.getElementById('ca-pw').value = '';
   document.getElementById('ca-confirm').value = '';
+}
+
+function goBackToStep2() {
+  clearOtpTimer();
+  document.getElementById('auth-step3-pw').style.display = 'none';
+  document.getElementById('auth-step3-otp').style.display = 'none';
+  document.getElementById('a-pw-err').textContent = '';
+  document.getElementById('a-otp-err').textContent = '';
+  document.getElementById('si-pw').value = '';
+  document.getElementById('si-otp').value = '';
+  document.getElementById('auth-step2-in').style.display = '';
 }
 
 async function handleEmailCheck() {
@@ -1030,16 +1087,21 @@ async function handleEmailCheck() {
   }
 }
 
-// ── Auth: Step 2 — Sign In ─────────────────────────────────────────
+// ── Auth: Step 2 — Choose method ──────────────────────────────────
 function showSignInStep2() {
   document.getElementById('auth-step2-in').style.display = '';
   document.getElementById('si-email-display').textContent = pendingEmail;
-  const isPasswordRole = pendingRole === 'admin' || pendingRole === 'manager';
-  document.getElementById('si-pw-section').style.display = isPasswordRole ? '' : 'none';
-  document.getElementById('si-otp-section').style.display = isPasswordRole ? 'none' : '';
-  if (isPasswordRole) {
+}
+
+function selectMethod(method) {
+  document.getElementById('auth-step2-in').style.display = 'none';
+  if (method === 'password') {
+    document.getElementById('auth-step3-pw').style.display = '';
+    document.getElementById('si-email-display-pw').textContent = pendingEmail;
     setTimeout(() => document.getElementById('si-pw').focus(), 80);
   } else {
+    document.getElementById('auth-step3-otp').style.display = '';
+    document.getElementById('si-email-display-otp').textContent = pendingEmail;
     document.getElementById('otp-email-display').textContent = pendingEmail;
     sendOtp();
   }
@@ -1048,7 +1110,7 @@ function showSignInStep2() {
 async function handleSignIn() {
   const pw  = document.getElementById('si-pw').value;
   const btn = document.getElementById('si-btn');
-  const err = document.getElementById('a-si-err');
+  const err = document.getElementById('a-pw-err');
   err.textContent = '';
   if (!pw) { err.textContent = 'Enter your password.'; return; }
   btn.disabled = true; btn.textContent = '…';
@@ -1071,20 +1133,20 @@ async function handleSignIn() {
 
 // ── Auth: OTP (member sign-in) ─────────────────────────────────────
 async function sendOtp() {
-  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('a-otp-err').textContent = '';
   const { error } = await sb.auth.signInWithOtp({
     email: pendingEmail,
     options: { shouldCreateUser: false }
   });
   if (error) {
-    document.getElementById('a-si-err').textContent = error.message || 'Failed to send OTP. Ensure your account exists.';
+    document.getElementById('a-otp-err').textContent = error.message || 'Failed to send OTP. Ensure your account exists.';
     return;
   }
   startOtpCountdown();
 }
 
 async function resendOtp() {
-  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('a-otp-err').textContent = '';
   document.getElementById('si-otp').value = '';
   await sendOtp();
 }
@@ -1116,7 +1178,7 @@ function clearOtpTimer() {
 async function handleVerifyOtp() {
   const token = document.getElementById('si-otp').value.trim();
   const btn   = document.getElementById('otp-verify-btn');
-  const err   = document.getElementById('a-si-err');
+  const err   = document.getElementById('a-otp-err');
   err.textContent = '';
   if (!token || token.length !== 6) { err.textContent = 'Enter the 6-digit code.'; return; }
   btn.disabled = true; btn.textContent = '…';
@@ -1230,6 +1292,8 @@ async function signOut() {
   document.getElementById('tab-up').classList.remove('active');
   document.getElementById('auth-step1').style.display = '';
   document.getElementById('auth-step2-in').style.display = 'none';
+  document.getElementById('auth-step3-pw').style.display = 'none';
+  document.getElementById('auth-step3-otp').style.display = 'none';
   document.getElementById('auth-step2-up').style.display = 'none';
   document.getElementById('a-email').value = '';
   document.getElementById('si-pw').value = '';
@@ -1237,7 +1301,8 @@ async function signOut() {
   document.getElementById('ca-pw').value = '';
   document.getElementById('ca-confirm').value = '';
   document.getElementById('a-err').textContent = '';
-  document.getElementById('a-si-err').textContent = '';
+  document.getElementById('a-pw-err').textContent = '';
+  document.getElementById('a-otp-err').textContent = '';
   document.getElementById('a-ca-err').textContent = '';
   document.getElementById('m-pw').value = '';
   document.getElementById('m-confirm').value = '';
