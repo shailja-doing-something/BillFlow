@@ -1672,8 +1672,16 @@ async function handleMaster() {
     } else {
       // ── Unlock (returning user) ───────────────────────────────────
       const salt = Uint8Array.from(atob(cfg.pbkdf2_salt), c => c.charCodeAt(0));
-      const key  = await deriveKey(pw, salt);
-      const chk  = await decryptField(key, cfg.verification_iv, cfg.verification_blob);
+      const role = cfg?.role || pendingRole || 'admin';
+
+      // Admin: if wrapped_vault_key not yet set (first login after new flow),
+      // derive with extractable key so we can generate the member access key
+      const needsWrapping = role === 'admin' && !cfg.wrapped_vault_key;
+      const key = needsWrapping
+        ? await deriveKeyExtractable(pw, salt)
+        : await deriveKey(pw, salt);
+
+      const chk = await decryptField(key, cfg.verification_iv, cfg.verification_blob);
       if (chk !== 'billflow-vault-verified') {
         masterAttempts++;
         const remaining = MAX_MASTER_ATTEMPTS - masterAttempts;
@@ -1686,6 +1694,25 @@ async function handleMaster() {
         return;
       }
       vaultKey = key;
+
+      // One-time: generate and store wrapped vault key for member access
+      if (needsWrapping) {
+        try {
+          const toB64    = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+          const memberAK = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+          const rawVK    = await crypto.subtle.exportKey('raw', key);
+          const wrapIv   = crypto.getRandomValues(new Uint8Array(12));
+          const wrappedVK = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: wrapIv }, memberAK, rawVK);
+          const rawMAK   = await crypto.subtle.exportKey('raw', memberAK);
+          await sb.from('user_settings').update({
+            is_admin_settings:    true,
+            member_access_key:    toB64(rawMAK),
+            wrapped_vault_key:    toB64(wrappedVK),
+            wrapped_vault_key_iv: toB64(wrapIv),
+          }).eq('user_id', currentUser.id);
+        } catch(_) { /* non-critical — vault still opens */ }
+      }
+
       const ip = await fetchIp();
       await updateSigninTracking('master_password', ip);
       await loadVault();
