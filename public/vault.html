@@ -1329,7 +1329,8 @@ async function handleVerifyOtp() {
     if (!existingCfg) {
       const salt    = crypto.getRandomValues(new Uint8Array(16));
       const saltB64 = btoa(String.fromCharCode(...salt));
-      await sb.from('user_settings').insert({
+      // Try with tracking columns first, fall back to base insert
+      let { error: otpInsErr } = await sb.from('user_settings').insert({
         user_id:         currentUser.id,
         pbkdf2_salt:     saltB64,
         role:            pendingRole || 'member',
@@ -1339,6 +1340,13 @@ async function handleVerifyOtp() {
         last_ip:         ip,
         last_user_agent: navigator.userAgent,
       });
+      if (otpInsErr) {
+        await sb.from('user_settings').insert({
+          user_id:     currentUser.id,
+          pbkdf2_salt: saltB64,
+          role:        pendingRole || 'member',
+        });
+      }
     } else {
       await updateSigninTracking('otp', ip);
     }
@@ -1390,18 +1398,30 @@ async function handleCreateAccount() {
     // Write user_settings row (no vault key yet — set on master-screen)
     const salt    = crypto.getRandomValues(new Uint8Array(16));
     const saltB64 = btoa(String.fromCharCode(...salt));
-    const { error: insErr } = await sb.from('user_settings').insert({
-      user_id:          currentUser.id,
-      pbkdf2_salt:      saltB64,
-      role:             pendingRole,
+    // Try full insert with tracking columns first; fall back to minimal insert
+    // if tracking columns haven't been migrated yet
+    let insErr;
+    ({ error: insErr } = await sb.from('user_settings').insert({
+      user_id:           currentUser.id,
+      pbkdf2_salt:       saltB64,
+      role:              pendingRole,
       is_admin_settings: pendingRole === 'admin',
-      signin_method:    'master_password',
-      last_signin_at:   new Date().toISOString(),
-      signin_count:     1,
-      last_ip:          ip,
-      last_user_agent:  navigator.userAgent,
-    });
-    if (insErr) throw new Error(insErr.message);
+      signin_method:     'master_password',
+      last_signin_at:    new Date().toISOString(),
+      signin_count:      1,
+      last_ip:           ip,
+      last_user_agent:   navigator.userAgent,
+    }));
+    if (insErr) {
+      // Fallback: insert only base columns (tracking columns not yet migrated)
+      ({ error: insErr } = await sb.from('user_settings').insert({
+        user_id:           currentUser.id,
+        pbkdf2_salt:       saltB64,
+        role:              pendingRole,
+        is_admin_settings: pendingRole === 'admin',
+      }));
+      if (insErr) throw new Error(insErr.message);
+    }
 
     // Notify admin (fire-and-forget)
     sb.functions.invoke('notify-admin', {
