@@ -70,6 +70,24 @@ export interface Tool {
   monthlyTrend: { month: string; total: number }[];
 }
 
+export interface FlaggedBilledVendor {
+  vendor_name: string;
+  latest_invoice_date: string | null;
+  latest_total_amount: number | null;
+  payment_status: string | null;
+  invoice_count: number;
+}
+
+export interface NeverUsedVendor {
+  vendor_name: string;
+  total_spend: number;
+}
+
+export interface FlaggedToolsData {
+  billedInactive: FlaggedBilledVendor[];
+  neverUsed: NeverUsedVendor[];
+}
+
 export interface InvoiceFilters {
   vendor?: string;
   status?: string;

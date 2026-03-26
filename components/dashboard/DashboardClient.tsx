@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { AlertCircle, TrendingUp, CalendarClock, RefreshCw, OctagonAlert } from "lucide-react";
+import { AlertCircle, TrendingUp, CalendarClock, RefreshCw, OctagonAlert, AlertTriangle, Ban } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { SpendRangeCard } from "@/components/dashboard/SpendByMonthCard";
 import { SpendByVendorChart } from "@/components/dashboard/SpendByVendorChart";
 import { MonthlyTrendChart } from "@/components/dashboard/MonthlyTrendChart";
-import { DashboardMetrics, FinancialRecord } from "@/types";
+import { DashboardMetrics, FinancialRecord, FlaggedToolsData } from "@/types";
 import { formatCurrency, formatDate, cn, canonicalVendor } from "@/lib/utils";
 import { DashboardChat } from "@/components/dashboard/DashboardChat";
+import { FlaggedToolsModal } from "@/components/FlaggedToolsModal";
 
 interface Props {
   initial: DashboardMetrics;
@@ -19,6 +20,8 @@ export function DashboardClient({ initial }: Props) {
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [vendorProjects, setVendorProjects] = useState<Record<string, string[]>>({});
+  const [flaggedData, setFlaggedData] = useState<FlaggedToolsData>({ billedInactive: [], neverUsed: [] });
+  const [showFlaggedModal, setShowFlaggedModal] = useState(false);
 
   useEffect(() => {
     fetch("/api/sheets")
@@ -39,6 +42,11 @@ export function DashboardClient({ initial }: Props) {
         }
         setVendorProjects(map);
       })
+      .catch(() => {});
+
+    fetch("/api/flagged-tools")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => { if (json) setFlaggedData(json); })
       .catch(() => {});
   }, []);
 
@@ -109,6 +117,54 @@ export function DashboardClient({ initial }: Props) {
           accent="emerald"
         />
       </div>
+
+      {/* Flagged tool cards — only shown when flags exist */}
+      {(flaggedData.billedInactive.length > 0 || flaggedData.neverUsed.length > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          {flaggedData.billedInactive.length > 0 && (
+            <button
+              onClick={() => setShowFlaggedModal(true)}
+              className="text-left rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 border-t-4 border-t-amber-400 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Billed but Inactive</p>
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {flaggedData.billedInactive.length}
+              </p>
+              <p className="text-xs mt-1.5 text-slate-400 dark:text-slate-500">Paying but no active project</p>
+            </button>
+          )}
+          {flaggedData.neverUsed.length > 0 && (
+            <button
+              onClick={() => setShowFlaggedModal(true)}
+              className="text-left rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 border-t-4 border-t-red-400 p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tools Never Used</p>
+                <div className="p-2 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-500">
+                  <Ban className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {flaggedData.neverUsed.length}
+              </p>
+              <p className="text-xs mt-1.5 text-slate-400 dark:text-slate-500">Never linked to any project</p>
+            </button>
+          )}
+        </div>
+      )}
+
+      {showFlaggedModal && (
+        <FlaggedToolsModal
+          billedInactive={flaggedData.billedInactive}
+          neverUsed={flaggedData.neverUsed}
+          onClose={() => setShowFlaggedModal(false)}
+        />
+      )}
 
       {/* Charts */}
       <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-5 transition-opacity", loading && "opacity-60")}>

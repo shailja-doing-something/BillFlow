@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Tool } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import {
   LineChart,
   Line,
@@ -11,20 +11,33 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Brain, Wrench, ChevronDown, ChevronUp } from "lucide-react";
+import { Brain, Wrench, ChevronDown, ChevronUp, AlertTriangle, Ban } from "lucide-react";
+
+export type FlagType = "paying_not_in_use" | "never_used";
 
 interface Props {
   tool: Tool;
+  flagTypes?: FlagType[];
 }
 
-export function ToolCard({ tool }: Props) {
+export function ToolCard({ tool, flagTypes }: Props) {
   const [expanded, setExpanded] = useState(false);
   const hasTrend = tool.monthlyTrend.length > 1;
-
   const isLLM = tool.type === "llm";
+  const isBilledInactive = flagTypes?.includes("paying_not_in_use");
+  const isNeverUsed = flagTypes?.includes("never_used");
+
+  const borderAccent = isNeverUsed
+    ? "border-l-4 border-l-red-400"
+    : isBilledInactive
+    ? "border-l-4 border-l-amber-400"
+    : "";
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className={cn(
+      "rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden hover:shadow-md transition-shadow",
+      borderAccent
+    )}>
       <div
         className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
         onClick={() => setExpanded((v) => !v)}
@@ -38,7 +51,27 @@ export function ToolCard({ tool }: Props) {
             )}
           </div>
           <div>
-            <p className="font-bold text-slate-900 dark:text-white text-sm">{tool.name}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold text-slate-900 dark:text-white text-sm">{tool.name}</p>
+              {isBilledInactive && (
+                <span
+                  title="Being billed but not used in any currently active project"
+                  className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 cursor-help"
+                >
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  No active project
+                </span>
+              )}
+              {isNeverUsed && (
+                <span
+                  title="This tool has never appeared in any project past or present"
+                  className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 cursor-help"
+                >
+                  <Ban className="w-2.5 h-2.5" />
+                  Never used
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">
               <span className="font-semibold text-slate-500">
                 {isLLM ? "LLM" : "Service"}
